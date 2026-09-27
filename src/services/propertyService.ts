@@ -187,7 +187,10 @@ export const propertyService = {
         owner_id: ownerId,
         status: propertyData.status || 'available',
         amenities: propertyData.amenities ?? [],
-        featured: propertyData.featured ?? false
+        featured: propertyData.featured ?? false,
+        // Store URLs in the images[] column too — this is the fallback
+        // that PropertyCard uses if the property_media join returns nothing
+        images: imageUrls.length > 0 ? imageUrls : []
       })
       .select()
       .single();
@@ -198,20 +201,21 @@ export const propertyService = {
       );
     }
 
-    // Insert media rows if we have image URLs
+    // Also insert into property_media for the full media join
     if (imageUrls.length > 0) {
       const { error: mediaError } = await supabase.from('property_media').insert(
         imageUrls.map((url, idx) => ({
           property_id: data.id,
           url,
           media_type: 'image',
-          is_cover: idx === 0,
           display_order: idx + 1
+          // Note: is_cover intentionally omitted — old schema may not have it
         }))
       );
       if (mediaError) {
-        // Non-fatal: property exists, images just didn't attach
-        console.error('Failed to attach property media:', mediaError.message);
+        // Non-fatal: images are already saved in properties.images[]
+        // so they will still display via the enrichProperty fallback
+        console.error('property_media insert error (non-fatal):', mediaError.message);
       }
     }
 
