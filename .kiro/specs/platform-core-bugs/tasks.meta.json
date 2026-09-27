@@ -1,0 +1,215 @@
+{
+  "pbtResults": {
+    "1. Write bug condition exploration tests (BEFORE implementing any fix)": {
+      "status": "passed",
+      "failingExample": "Bug 1: expected array of length 1, got 2 — createProperty writes local ID `prop-${timestamp}`, Supabase returns UUID `supabase-real-uuid-001-aaaa-bbbbbbbbbbbb`, merge produces two distinct records.\nBug 2: expected leads.length > 0, got 0 — sendEnquiry stores fake UUID `00000000-0000-4000-8000-707266656e64` as recipient_id; getEnquiriesForUser called with real UUID `a1b2c3d4-5678-4000-8abc-def012345678` finds no match.\nBug 3: expected fakeUuidCalls.length === 0, got 1 — incrementPropertyViews('prop-seed-1') called update().eq('id', '00000000-0000-4000-8000-707266656e64').\nBug 4: expected localStorage.CURRENT_USER === null, got `{\"id\":\"uid-new-user-pending-confirmation\",...}` — signUp set CURRENT_USER even when session=null; result.needsEmailConfirmation is absent.\nBug 5: expected loadData body to contain 'Promise.all', received sequential await chain: `const user = await api.getCurrentUser(); setCurrentUser(user); const profiles = await api.getAllUsers(); ...`",
+      "lastRunTimestamp": 1790370169714
+    }
+  },
+  "executionHistory": {
+    "1. Write bug condition exploration tests (BEFORE implementing any fix)": [
+      {
+        "executionId": "a5ae3ee8-1595-4b6f-9d3a-7570ca29c036",
+        "chatSessionId": "sess_ba146e03-428b-41ed-8175-dd73a614236f",
+        "timestamp": 1790368945641
+      },
+      {
+        "executionId": "a5ae3ee8-1595-4b6f-9d3a-7570ca29c036",
+        "chatSessionId": "sess_ba146e03-428b-41ed-8175-dd73a614236f",
+        "timestamp": 1790368962310
+      },
+      {
+        "executionId": "9f0ad39d-fd41-4f77-8859-44c6b0403af2",
+        "chatSessionId": "sess_ba146e03-428b-41ed-8175-dd73a614236f",
+        "timestamp": 1790370189991
+      }
+    ],
+    "2. Write preservation property tests (BEFORE implementing any fix)": [
+      {
+        "executionId": "a5ae3ee8-1595-4b6f-9d3a-7570ca29c036",
+        "chatSessionId": "sess_ba146e03-428b-41ed-8175-dd73a614236f",
+        "timestamp": 1790368945857
+      },
+      {
+        "executionId": "9f0ad39d-fd41-4f77-8859-44c6b0403af2",
+        "chatSessionId": "sess_ba146e03-428b-41ed-8175-dd73a614236f",
+        "timestamp": 1790370197471
+      }
+    ],
+    "3.1 Implement ID reconciliation in `createProperty` (`src/services/api.ts`)": [
+      {
+        "executionId": "a5ae3ee8-1595-4b6f-9d3a-7570ca29c036",
+        "chatSessionId": "sess_ba146e03-428b-41ed-8175-dd73a614236f",
+        "timestamp": 1790368945964
+      }
+    ],
+    "3.2 Implement ID reconciliation in `createReel` (`src/services/api.ts`)": [
+      {
+        "executionId": "a5ae3ee8-1595-4b6f-9d3a-7570ca29c036",
+        "chatSessionId": "sess_ba146e03-428b-41ed-8175-dd73a614236f",
+        "timestamp": 1790368946071
+      }
+    ],
+    "3.3 Verify bug condition exploration test (Bug 1) now passes": [
+      {
+        "executionId": "a5ae3ee8-1595-4b6f-9d3a-7570ca29c036",
+        "chatSessionId": "sess_ba146e03-428b-41ed-8175-dd73a614236f",
+        "timestamp": 1790368946196
+      }
+    ],
+    "3.4 Verify preservation tests still pass after Bug 1 fix": [
+      {
+        "executionId": "a5ae3ee8-1595-4b6f-9d3a-7570ca29c036",
+        "chatSessionId": "sess_ba146e03-428b-41ed-8175-dd73a614236f",
+        "timestamp": 1790368946338
+      }
+    ],
+    "4.1 Add Supabase UID resolution by email in `sendEnquiry` (`src/services/api.ts`)": [
+      {
+        "executionId": "a5ae3ee8-1595-4b6f-9d3a-7570ca29c036",
+        "chatSessionId": "sess_ba146e03-428b-41ed-8175-dd73a614236f",
+        "timestamp": 1790368946446
+      }
+    ],
+    "4.2 Verify bug condition exploration test (Bug 2) now passes": [
+      {
+        "executionId": "a5ae3ee8-1595-4b6f-9d3a-7570ca29c036",
+        "chatSessionId": "sess_ba146e03-428b-41ed-8175-dd73a614236f",
+        "timestamp": 1790368946547
+      }
+    ],
+    "4.3 Verify preservation tests still pass after Bug 2 fix": [
+      {
+        "executionId": "a5ae3ee8-1595-4b6f-9d3a-7570ca29c036",
+        "chatSessionId": "sess_ba146e03-428b-41ed-8175-dd73a614236f",
+        "timestamp": 1790368946641
+      }
+    ],
+    "5.1 Add UUID detection and conditional Supabase skip in `incrementPropertyViews` (`src/services/api.ts`)": [
+      {
+        "executionId": "a5ae3ee8-1595-4b6f-9d3a-7570ca29c036",
+        "chatSessionId": "sess_ba146e03-428b-41ed-8175-dd73a614236f",
+        "timestamp": 1790368946750
+      }
+    ],
+    "5.2 Apply identical UUID detection pattern to `incrementReelViews` (`src/services/api.ts`)": [
+      {
+        "executionId": "a5ae3ee8-1595-4b6f-9d3a-7570ca29c036",
+        "chatSessionId": "sess_ba146e03-428b-41ed-8175-dd73a614236f",
+        "timestamp": 1790368946856
+      }
+    ],
+    "5.3 Verify bug condition exploration test (Bug 3) now passes": [
+      {
+        "executionId": "a5ae3ee8-1595-4b6f-9d3a-7570ca29c036",
+        "chatSessionId": "sess_ba146e03-428b-41ed-8175-dd73a614236f",
+        "timestamp": 1790368946950
+      }
+    ],
+    "5.4 Verify preservation tests still pass after Bug 3 fix": [
+      {
+        "executionId": "a5ae3ee8-1595-4b6f-9d3a-7570ca29c036",
+        "chatSessionId": "sess_ba146e03-428b-41ed-8175-dd73a614236f",
+        "timestamp": 1790368947113
+      }
+    ],
+    "6.1 Fix `signUp` to detect email-confirmation-pending state (`src/services/api.ts`)": [
+      {
+        "executionId": "a5ae3ee8-1595-4b6f-9d3a-7570ca29c036",
+        "chatSessionId": "sess_ba146e03-428b-41ed-8175-dd73a614236f",
+        "timestamp": 1790368947227
+      }
+    ],
+    "6.2 Fix `login` to stop fallthrough on real Supabase errors (`src/services/api.ts`)": [
+      {
+        "executionId": "a5ae3ee8-1595-4b6f-9d3a-7570ca29c036",
+        "chatSessionId": "sess_ba146e03-428b-41ed-8175-dd73a614236f",
+        "timestamp": 1790368947327
+      }
+    ],
+    "6.3 Fix `login` to auto-create missing profile row when Supabase auth succeeds (`src/services/api.ts`)": [
+      {
+        "executionId": "a5ae3ee8-1595-4b6f-9d3a-7570ca29c036",
+        "chatSessionId": "sess_ba146e03-428b-41ed-8175-dd73a614236f",
+        "timestamp": 1790368947422
+      }
+    ],
+    "6.4 Update `AuthModal` to handle `needsEmailConfirmation` (`src/components/AuthModal.tsx`)": [
+      {
+        "executionId": "a5ae3ee8-1595-4b6f-9d3a-7570ca29c036",
+        "chatSessionId": "sess_ba146e03-428b-41ed-8175-dd73a614236f",
+        "timestamp": 1790368947519
+      }
+    ],
+    "6.5 Verify bug condition exploration tests (Bug 4) now pass": [
+      {
+        "executionId": "a5ae3ee8-1595-4b6f-9d3a-7570ca29c036",
+        "chatSessionId": "sess_ba146e03-428b-41ed-8175-dd73a614236f",
+        "timestamp": 1790368947608
+      }
+    ],
+    "6.6 Verify preservation tests still pass after Bug 4 fix": [
+      {
+        "executionId": "a5ae3ee8-1595-4b6f-9d3a-7570ca29c036",
+        "chatSessionId": "sess_ba146e03-428b-41ed-8175-dd73a614236f",
+        "timestamp": 1790368947749
+      }
+    ],
+    "7.1 Parallelize `loadData` with `Promise.all` in `App.tsx` (`src/App.tsx`)": [
+      {
+        "executionId": "a5ae3ee8-1595-4b6f-9d3a-7570ca29c036",
+        "chatSessionId": "sess_ba146e03-428b-41ed-8175-dd73a614236f",
+        "timestamp": 1790368947882
+      }
+    ],
+    "7.2 Add loading state and skeleton/spinner to `App.tsx` (`src/App.tsx`)": [
+      {
+        "executionId": "a5ae3ee8-1595-4b6f-9d3a-7570ca29c036",
+        "chatSessionId": "sess_ba146e03-428b-41ed-8175-dd73a614236f",
+        "timestamp": 1790368947976
+      }
+    ],
+    "7.3 Increase polling interval from 3 000ms to 15 000ms in `ProfessionalDashboard` (`src/components/ProfessionalDashboard.tsx`)": [
+      {
+        "executionId": "a5ae3ee8-1595-4b6f-9d3a-7570ca29c036",
+        "chatSessionId": "sess_ba146e03-428b-41ed-8175-dd73a614236f",
+        "timestamp": 1790368948087
+      }
+    ],
+    "7.4 Break the cascading `getProperties` / `getReels` calls inside the poll tick (`src/components/ProfessionalDashboard.tsx`)": [
+      {
+        "executionId": "a5ae3ee8-1595-4b6f-9d3a-7570ca29c036",
+        "chatSessionId": "sess_ba146e03-428b-41ed-8175-dd73a614236f",
+        "timestamp": 1790368948188
+      }
+    ],
+    "7.5 Add loading state to `ProfessionalDashboard` tabs (`src/components/ProfessionalDashboard.tsx`)": [
+      {
+        "executionId": "a5ae3ee8-1595-4b6f-9d3a-7570ca29c036",
+        "chatSessionId": "sess_ba146e03-428b-41ed-8175-dd73a614236f",
+        "timestamp": 1790368948371
+      }
+    ],
+    "7.6 Verify bug condition exploration tests (Bug 5) now pass": [
+      {
+        "executionId": "a5ae3ee8-1595-4b6f-9d3a-7570ca29c036",
+        "chatSessionId": "sess_ba146e03-428b-41ed-8175-dd73a614236f",
+        "timestamp": 1790368948471
+      }
+    ],
+    "7.7 Verify preservation tests still pass after Bug 5 fix": [
+      {
+        "executionId": "a5ae3ee8-1595-4b6f-9d3a-7570ca29c036",
+        "chatSessionId": "sess_ba146e03-428b-41ed-8175-dd73a614236f",
+        "timestamp": 1790368948566
+      }
+    ],
+    "8. Checkpoint — Ensure all tests pass and all bugs are resolved": [
+      {
+        "executionId": "a5ae3ee8-1595-4b6f-9d3a-7570ca29c036",
+        "chatSessionId": "sess_ba146e03-428b-41ed-8175-dd73a614236f",
+        "timestamp": 1790368948658
+      }
+    ]
+  }
+}

@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">SWARAJ</string>
+    <string name="title_activity_main">SWARAJ</string>
+    <string name="package_name">com.swaraj.realestate</string>
+    <string name="custom_url_scheme">com.swaraj.realestate</string>
+</resources>
