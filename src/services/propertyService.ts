@@ -322,7 +322,6 @@ export const propertyService = {
       // Non-fatal — view count failures should never break the app
     }
   },
-  },
 
   async uploadPropertyImage(imageFile: File): Promise<string> {
     return uploadFileToSupabase('properties', imageFile);
