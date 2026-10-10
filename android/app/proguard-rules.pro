@@ -1,21 +1,29 @@
-# Add project specific ProGuard rules here.
-# You can control the set of applied configuration files using the
-# proguardFiles setting in build.gradle.
-#
-# For more details, see
-#   http://developer.android.com/guide/developing/tools/proguard.html
+# ─────────────────────────────────────────────────────────────────────────────
+# Swaraj ProGuard / R8 rules
+# ─────────────────────────────────────────────────────────────────────────────
 
-# If your project uses WebView with JS, uncomment the following
-# and specify the fully qualified class name to the JavaScript interface
-# class:
-#-keepclassmembers class fqcn.of.javascript.interface.for.webview {
-#   public *;
-#}
+# Keep line numbers in stack traces for debugging production crashes
+-keepattributes SourceFile,LineNumberTable
+-renamesourcefileattribute SourceFile
 
-# Uncomment this to preserve the line number information for
-# debugging stack traces.
-#-keepattributes SourceFile,LineNumberTable
+# ── Capacitor core ────────────────────────────────────────────────────────────
+-keep class com.getcapacitor.** { *; }
+-keep interface com.getcapacitor.** { *; }
+-keepclassmembers class * extends com.getcapacitor.Plugin { *; }
 
-# If you keep the line number information, uncomment this to
-# hide the original source file name.
-#-renamesourcefileattribute SourceFile
+# ── WebView JavaScript interface ──────────────────────────────────────────────
+# Keeps any class annotated with @android.webkit.JavascriptInterface callable from JS
+-keepclassmembers class * {
+    @android.webkit.JavascriptInterface <methods>;
+}
+
+# ── AndroidX / Jetpack ────────────────────────────────────────────────────────
+-keep class androidx.core.app.CoreComponentFactory { *; }
+-dontwarn androidx.**
+
+# ── Cordova bridge (used by Capacitor internally) ─────────────────────────────
+-keep class org.apache.cordova.** { *; }
+
+# ── Suppress warnings for missing classes in transitive deps ──────────────────
+-dontwarn org.apache.cordova.**
+-dontwarn com.google.android.gms.**

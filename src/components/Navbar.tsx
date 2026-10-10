@@ -27,20 +27,17 @@ export const Navbar: React.FC<NavbarProps> = ({
         >
           <img
             src="/logo.png"
-            alt="SWARAJ GROUP"
-            className="w-10 h-10 rounded-xl object-contain border border-slate-200 bg-white p-0.5 shadow-sm group-hover:scale-105 transition"
+            alt="IndoProperty"
+            className="h-10 w-auto object-contain rounded-lg group-hover:scale-105 transition"
           />
           <div>
             <div className="flex items-center gap-1.5">
               <span className="font-extrabold text-slate-900 tracking-tight text-xl leading-none font-sans">
-                SWARAJ
-              </span>
-              <span className="px-1.5 py-0.5 bg-indigo-100 text-indigo-700 text-[10px] font-extrabold uppercase rounded-md tracking-wider">
-                GROUP
+                IndoProperty
               </span>
             </div>
             <p className="text-[11px] text-slate-500 font-semibold leading-tight">
-              Land Dealing, Development & Video Tours
+              Real Estate for a Better Tomorrow
             </p>
           </div>
         </div>
@@ -81,14 +78,14 @@ export const Navbar: React.FC<NavbarProps> = ({
             <Heart className="w-4 h-4" /> Saved ({savedCount})
           </button>
 
-          {currentUser?.role === 'professional' && (
+          {currentUser && (
             <button
               onClick={() => onTabChange('professional')}
               className={`px-4 py-2 rounded-xl transition flex items-center gap-1.5 ${
                 currentTab === 'professional' ? 'bg-white text-indigo-600 shadow-sm font-black' : 'hover:text-slate-900'
               }`}
             >
-              <Sparkles className="w-4 h-4 text-amber-500" /> Professional Hub
+              <Sparkles className="w-4 h-4 text-amber-500" /> Dashboard & Post
             </button>
           )}
 
@@ -112,12 +109,8 @@ export const Navbar: React.FC<NavbarProps> = ({
               className="flex items-center gap-2 p-1.5 pl-3 bg-slate-100 hover:bg-slate-200 rounded-2xl text-xs font-semibold text-slate-800 transition border border-slate-200"
             >
               <span className="hidden sm:inline max-w-[120px] truncate">{currentUser.full_name}</span>
-              <span className={`px-1.5 py-0.5 rounded text-[10px] font-extrabold uppercase ${
-                currentUser.role === 'admin' ? 'bg-purple-600 text-white' :
-                currentUser.role === 'professional' ? 'bg-blue-600 text-white' :
-                'bg-slate-700 text-white'
-              }`}>
-                {currentUser.role}
+              <span className="px-1.5 py-0.5 rounded text-[10px] font-extrabold uppercase bg-indigo-600 text-white">
+                PRO
               </span>
               <img
                 src={currentUser.avatar_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100'}
@@ -128,9 +121,9 @@ export const Navbar: React.FC<NavbarProps> = ({
           ) : (
             <button
               onClick={onOpenAuth}
-              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-xs shadow-md shadow-indigo-200 transition flex items-center gap-1.5"
+              className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl text-xs shadow-md transition flex items-center gap-1.5"
             >
-              <LogIn className="w-3.5 h-3.5" /> Sign In / Account
+              <LogIn className="w-3.5 h-3.5" /> Sign In
             </button>
           )}
         </div>

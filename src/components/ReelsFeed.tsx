@@ -1,17 +1,20 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Heart, MessageCircle, Bookmark, Share2, Send, Building, Volume2, VolumeX, Plus, Check, Play, ShieldCheck, MessageSquare, Flag, Film } from 'lucide-react';
+import { Heart, MessageCircle, Bookmark, Share2, Send, Building, Volume2, VolumeX, Plus, Check, Play, ShieldCheck, MessageSquare, Camera, Music, MoreVertical } from 'lucide-react';
 import type { Reel, ReelComment, Property, Profile } from '../types/database';
 import { api } from '../services/api';
 import { formatPrice } from './PropertyCard';
 import { resolveMediaUrl } from '../services/mediaStore';
+import { ShareModal } from './ShareModal';
 
 export const ReelVideoPlayer: React.FC<{
   reel: Reel;
   isMuted: boolean;
   onVideoRef: (el: HTMLVideoElement | null) => void;
   onClick: () => void;
-}> = ({ reel, isMuted, onVideoRef, onClick }) => {
+  onDoubleClick: () => void;
+}> = React.memo(({ reel, isMuted, onVideoRef, onClick, onDoubleClick }) => {
   const [videoSrc, setVideoSrc] = useState<string>(reel.video_url);
+  const clickTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (reel.video_url?.startsWith('idb://')) {
@@ -20,6 +23,19 @@ export const ReelVideoPlayer: React.FC<{
       setVideoSrc(reel.video_url);
     }
   }, [reel.video_url]);
+
+  const handleClick = () => {
+    if (clickTimeoutRef.current) {
+      clearTimeout(clickTimeoutRef.current);
+      clickTimeoutRef.current = null;
+      onDoubleClick();
+    } else {
+      clickTimeoutRef.current = setTimeout(() => {
+        clickTimeoutRef.current = null;
+        onClick();
+      }, 250);
+    }
+  };
 
   return (
     <video
@@ -30,11 +46,17 @@ export const ReelVideoPlayer: React.FC<{
       muted={isMuted}
       playsInline
       preload="auto"
-      onClick={onClick}
-      className="w-full h-full object-cover cursor-pointer"
+      onClick={handleClick}
+      className="w-full h-full object-cover cursor-pointer select-none"
     />
   );
-};
+}, (prevProps, nextProps) => {
+  return (
+    prevProps.reel.id === nextProps.reel.id &&
+    prevProps.reel.video_url === nextProps.reel.video_url &&
+    prevProps.isMuted === nextProps.isMuted
+  );
+});
 
 interface ReelsFeedProps {
   reels: Reel[];
@@ -45,6 +67,7 @@ interface ReelsFeedProps {
   onOpenCreateReel?: () => void;
   onOpenDirectChat?: (recipientId: string, property?: Property, reel?: Reel) => void;
   onOpenReport?: (target_type: 'reel' | 'property' | 'user' | 'comment', target_id: string, target_label?: string) => void;
+  onOpenAuth?: () => void;
 }
 
 export const ReelsFeed: React.FC<ReelsFeedProps> = ({
@@ -55,22 +78,23 @@ export const ReelsFeed: React.FC<ReelsFeedProps> = ({
   onRefreshReels,
   onOpenCreateReel,
   onOpenDirectChat,
-  onOpenReport
+  onOpenReport,
+  onOpenAuth
 }) => {
   const [activeReelIdx, setActiveReelIdx] = useState(0);
   const [isMuted, setIsMuted] = useState(true);
   const [isPlaying, setIsPlaying] = useState(true);
   const [commentDrawerReel, setCommentDrawerReel] = useState<Reel | null>(null);
+  const [shareModalReel, setShareModalReel] = useState<Reel | null>(null);
   const [commentsList, setCommentsList] = useState<ReelComment[]>([]);
   const [newCommentText, setNewCommentText] = useState('');
+  const [doubleTapHeart, setDoubleTapHeart] = useState<{ reelId: string; show: boolean }>({ reelId: '', show: false });
   const videoRefs = useRef<{ [key: string]: HTMLVideoElement | null }>({});
 
   const [localLikeStates, setLocalLikeStates] = useState<{ [id: string]: { isLiked: boolean; count: number } }>({});
   const [localSaveStates, setLocalSaveStates] = useState<{ [id: string]: boolean }>({});
   const [localCommentCounts, setLocalCommentCounts] = useState<{ [id: string]: number }>({});
 
-  // TASK 4 FIX: Prevent re-entrant double-clicks on like/save which would create
-  // duplicate junction rows or race the count column.
   const pendingLikesRef = useRef<Set<string>>(new Set());
   const pendingSavesRef = useRef<Set<string>>(new Set());
 
@@ -107,6 +131,11 @@ export const ReelsFeed: React.FC<ReelsFeedProps> = ({
   }, [reels]);
 
   const handleToggleLike = async (reel: Reel) => {
+    if (!currentUser) {
+      if (onOpenAuth) onOpenAuth();
+      else alert('Please sign in to like reels.');
+      return;
+    }
     if (pendingLikesRef.current.has(reel.id)) return;
     pendingLikesRef.current.add(reel.id);
 
@@ -122,19 +151,35 @@ export const ReelsFeed: React.FC<ReelsFeedProps> = ({
 
     try {
       const { isLiked, count } = await api.toggleLikeReel(reel.id);
-      // Use server-truth for final displayed state/count
       setLocalLikeStates(prev => ({
         ...prev,
         [reel.id]: { isLiked, count: typeof count === 'number' ? count : nextCount }
       }));
     } catch (_e) {
-      // Already have optimistic update in place; swallow
+      // Optimistic update retained
     } finally {
       pendingLikesRef.current.delete(reel.id);
     }
   };
 
+  const handleDoubleTap = (reel: Reel) => {
+    setDoubleTapHeart({ reelId: reel.id, show: true });
+    setTimeout(() => {
+      setDoubleTapHeart({ reelId: '', show: false });
+    }, 1000);
+
+    const currentIsLiked = localLikeStates[reel.id]?.isLiked ?? reel.is_liked_by_user ?? false;
+    if (!currentIsLiked) {
+      handleToggleLike(reel);
+    }
+  };
+
   const handleToggleSave = async (reel: Reel) => {
+    if (!currentUser) {
+      if (onOpenAuth) onOpenAuth();
+      else alert('Please sign in to save reels.');
+      return;
+    }
     if (pendingSavesRef.current.has(reel.id)) return;
     pendingSavesRef.current.add(reel.id);
 
@@ -146,26 +191,40 @@ export const ReelsFeed: React.FC<ReelsFeedProps> = ({
       const nowSaved = await api.toggleSaveReel(reel.id);
       setLocalSaveStates(prev => ({ ...prev, [reel.id]: nowSaved }));
     } catch (_e) {
-      // Optimistic already visible
+      // Optimistic update retained
     } finally {
       pendingSavesRef.current.delete(reel.id);
     }
   };
 
   const handleToggleFollow = async (creatorId: string) => {
+    if (!currentUser) {
+      if (onOpenAuth) onOpenAuth();
+      else alert('Please sign in to follow creators.');
+      return;
+    }
     await api.toggleFollowCreator(creatorId);
     onRefreshReels();
   };
 
   const handleOpenComments = async (reel: Reel) => {
     setCommentDrawerReel(reel);
-    const comments = await api.getReelComments(reel.id);
-    setCommentsList(comments);
+    try {
+      const comments = await api.getReelComments(reel.id);
+      setCommentsList(comments);
+    } catch (_e) {
+      setCommentsList([]);
+    }
   };
 
   const handlePostComment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newCommentText.trim() || !commentDrawerReel) return;
+    if (!currentUser) {
+      if (onOpenAuth) onOpenAuth();
+      else alert('Please sign in to post comments.');
+      return;
+    }
     const text = newCommentText.trim();
     setNewCommentText('');
 
@@ -173,9 +232,9 @@ export const ReelsFeed: React.FC<ReelsFeedProps> = ({
       id: `comm-${Date.now()}`,
       created_at: new Date().toISOString(),
       reel_id: commentDrawerReel.id,
-      user_id: currentUser?.id || 'guest',
+      user_id: currentUser.id,
       content: text,
-      user: currentUser || { full_name: 'You', avatar_url: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=80' } as Profile
+      user: currentUser
     };
 
     setCommentsList(prev => [...prev, tempComment]);
@@ -184,48 +243,42 @@ export const ReelsFeed: React.FC<ReelsFeedProps> = ({
       [commentDrawerReel.id]: (prev[commentDrawerReel.id] ?? commentDrawerReel.comments_count ?? 0) + 1
     }));
 
-    await api.addReelComment(commentDrawerReel.id, text);
-    const updated = await api.getReelComments(commentDrawerReel.id);
-    setCommentsList(updated);
-    onRefreshReels();
-  };
-
-  const handleShare = (reel: Reel) => {
-    if (navigator.share) {
-      navigator.share({
-        title: reel.title,
-        text: reel.caption || reel.title,
-        url: window.location.href,
-      }).catch(() => {});
-    } else {
-      navigator.clipboard.writeText(window.location.href);
-      alert('Reel link copied to clipboard!');
+    try {
+      await api.addReelComment(commentDrawerReel.id, text);
+      const updated = await api.getReelComments(commentDrawerReel.id);
+      setCommentsList(updated);
+    } catch (_e) {
+      // Temp comment stays visible locally
     }
   };
 
+  const handleShare = (reel: Reel) => {
+    setShareModalReel(reel);
+  };
+
   return (
-    <div className="relative w-full h-full md:max-w-[430px] bg-black md:rounded-3xl overflow-hidden shadow-2xl border border-slate-800/80">
+    <div className="relative w-full h-full md:max-w-[430px] bg-black md:rounded-3xl overflow-hidden shadow-2xl border border-slate-800/80 font-sans select-none">
       {/* Top Header Overlay Bar (Instagram Style) */}
-      <div className="absolute top-0 inset-x-0 z-30 p-3.5 flex items-center justify-between bg-gradient-to-b from-black/80 via-black/40 to-transparent pointer-events-auto">
+      <div className="absolute top-0 inset-x-0 z-30 p-4 flex items-center justify-between bg-gradient-to-b from-black/80 via-black/40 to-transparent pointer-events-auto">
         <div className="flex items-center gap-2">
-          <span className="font-extrabold text-xs tracking-wider text-white bg-white/10 backdrop-blur-md px-3 py-1 rounded-full border border-white/10 flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" /> REELS
+          <span className="font-extrabold text-sm tracking-wide text-white drop-shadow flex items-center gap-1.5">
+            Reels
           </span>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2.5">
           {onOpenCreateReel && (
             <button
               onClick={onOpenCreateReel}
-              className="px-3 py-1.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-extrabold text-xs rounded-full shadow-lg shadow-purple-500/30 flex items-center gap-1 transition active:scale-95 cursor-pointer"
+              className="px-3 py-1.5 bg-gradient-to-r from-amber-500 via-rose-500 to-purple-600 hover:opacity-90 text-white font-extrabold text-xs rounded-full shadow-lg shadow-rose-500/30 flex items-center gap-1 transition active:scale-95 cursor-pointer"
             >
-              <Plus className="w-3.5 h-3.5" /> Post Reel
+              <Camera className="w-3.5 h-3.5" /> + Reel
             </button>
           )}
 
           <button
             onClick={() => setIsMuted(!isMuted)}
-            className="p-2 bg-black/50 backdrop-blur-md text-white rounded-full hover:bg-black/70 transition cursor-pointer"
+            className="p-2 bg-black/40 backdrop-blur-md text-white rounded-full hover:bg-black/60 transition cursor-pointer"
             title={isMuted ? 'Unmute' : 'Mute'}
           >
             {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
@@ -237,13 +290,13 @@ export const ReelsFeed: React.FC<ReelsFeedProps> = ({
       <div className="w-full h-full overflow-y-scroll snap-y-mandatory no-scrollbar">
         {reels.length === 0 ? (
           <div className="w-full h-full flex flex-col items-center justify-center p-6 text-center text-white bg-slate-950 space-y-4">
-            <div className="p-5 bg-gradient-to-tr from-purple-600 to-indigo-600 rounded-full shadow-2xl shadow-purple-500/40 animate-pulse">
-              <Film className="w-10 h-10 text-white" />
+            <div className="p-5 bg-gradient-to-tr from-amber-500 via-rose-500 to-purple-600 rounded-full shadow-2xl shadow-rose-500/40 animate-pulse">
+              <Camera className="w-10 h-10 text-white" />
             </div>
             <div className="space-y-1 max-w-xs">
               <h3 className="text-lg font-black tracking-wide">No Video Reels Available</h3>
               <p className="text-xs text-slate-400 leading-relaxed">
-                There are no published property reels yet. Refresh the feed or be the first to upload a short property video tour!
+                There are no published property reels yet. Be the first to upload an Instagram-style short property video tour!
               </p>
             </div>
             <div className="flex items-center gap-3 pt-2">
@@ -256,7 +309,7 @@ export const ReelsFeed: React.FC<ReelsFeedProps> = ({
               {onOpenCreateReel && (
                 <button
                   onClick={onOpenCreateReel}
-                  className="px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs font-bold rounded-xl shadow-lg shadow-purple-500/30 flex items-center gap-1.5 transition cursor-pointer"
+                  className="px-4 py-2 bg-gradient-to-r from-amber-500 via-rose-500 to-purple-600 hover:opacity-90 text-white text-xs font-bold rounded-xl shadow-lg shadow-rose-500/30 flex items-center gap-1.5 transition cursor-pointer"
                 >
                   <Plus className="w-4 h-4" /> Post Reel
                 </button>
@@ -275,7 +328,7 @@ export const ReelsFeed: React.FC<ReelsFeedProps> = ({
                 key={reel.id}
                 id={`reel-container-${reel.id}`}
                 data-reel-id={reel.id}
-                className="relative w-full h-full snap-start-reel shrink-0 flex items-center justify-center bg-slate-900"
+                className="relative w-full h-full snap-start-reel shrink-0 flex items-center justify-center bg-slate-900 overflow-hidden"
               >
                 {/* Video Element */}
                 <ReelVideoPlayer
@@ -296,174 +349,200 @@ export const ReelsFeed: React.FC<ReelsFeedProps> = ({
                       }
                     }
                   }}
+                  onDoubleClick={() => handleDoubleTap(reel)}
                 />
 
-              {/* Play/Pause overlay indicator when tapped */}
-              {!isPlaying && activeReelIdx === idx && (
-                <div className="absolute inset-0 flex items-center justify-center bg-black/20 pointer-events-none">
-                  <div className="p-4 bg-black/60 backdrop-blur-md rounded-full text-white">
-                    <Play className="w-8 h-8 fill-current translate-x-0.5" />
-                  </div>
-                </div>
-              )}
-
-              {/* Gradient Overlay at Bottom for Readable Text */}
-              <div className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black/90 via-black/40 to-transparent pointer-events-none" />
-
-              {/* Right Action Sidebar (Like, Comment, Save, Share, Creator) */}
-              <div className="absolute right-3 bottom-20 z-20 flex flex-col items-center gap-4 text-white">
-                {/* Creator Avatar & Follow Button */}
-                {reel.creator && (
-                  <div className="relative mb-2">
-                    <img
-                      src={reel.creator.avatar_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100'}
-                      alt={reel.creator.full_name}
-                      className="w-11 h-11 rounded-full object-cover border-2 border-indigo-500 shadow-md"
-                    />
-                    <button
-                      onClick={() => handleToggleFollow(reel.user_id)}
-                      className={`absolute -bottom-1 left-1/2 -translate-x-1/2 rounded-full p-0.5 shadow transition ${
-                        reel.is_following_creator ? 'bg-emerald-500 text-white' : 'bg-indigo-600 text-white'
-                      }`}
-                    >
-                      {reel.is_following_creator ? <Check className="w-3 h-3" /> : <Plus className="w-3 h-3" />}
-                    </button>
+                {/* Double Tap Floating Heart Animation (Instagram Signature!) */}
+                {doubleTapHeart.show && doubleTapHeart.reelId === reel.id && (
+                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-30">
+                    <Heart className="w-28 h-28 text-rose-500 fill-rose-500 animate-in zoom-in-50 fade-in duration-300 drop-shadow-2xl" />
                   </div>
                 )}
 
-                {/* Like Button */}
-                <button
-                  onClick={() => handleToggleLike(reel)}
-                  className="flex flex-col items-center gap-1 group cursor-pointer"
-                >
-                  <div className={`p-3 rounded-full backdrop-blur-md transition group-active:scale-125 ${
-                    isLiked ? 'bg-rose-500 text-white shadow-lg shadow-rose-500/50' : 'bg-black/40 text-white hover:bg-black/60'
-                  }`}>
-                    <Heart className={`w-6 h-6 ${isLiked ? 'fill-current' : ''}`} />
-                  </div>
-                  <span className={`text-xs font-bold ${isLiked ? 'text-rose-400' : 'text-white'}`}>{likesCount}</span>
-                </button>
-
-                {/* Comment Button */}
-                <button
-                  onClick={() => handleOpenComments(reel)}
-                  className="flex flex-col items-center gap-1 group cursor-pointer"
-                >
-                  <div className="p-3 bg-black/40 hover:bg-black/60 backdrop-blur-md rounded-full text-white transition group-active:scale-110">
-                    <MessageCircle className="w-6 h-6" />
-                  </div>
-                  <span className="text-xs font-bold">{commentsCount}</span>
-                </button>
-
-                {/* Save Reel Button */}
-                <button
-                  onClick={() => handleToggleSave(reel)}
-                  className="flex flex-col items-center gap-1 group cursor-pointer"
-                >
-                  <div className={`p-3 rounded-full backdrop-blur-md transition group-active:scale-110 ${
-                    isSaved ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/50' : 'bg-black/40 text-white hover:bg-black/60'
-                  }`}>
-                    <Bookmark className={`w-6 h-6 ${isSaved ? 'fill-current' : ''}`} />
-                  </div>
-                  <span className={`text-xs font-bold ${isSaved ? 'text-amber-400' : 'text-white'}`}>{reel.saves_count}</span>
-                </button>
-
-                {/* Share Button */}
-                <button
-                  onClick={() => handleShare(reel)}
-                  className="flex flex-col items-center gap-1 cursor-pointer"
-                >
-                  <div className="p-3 bg-black/40 hover:bg-black/60 backdrop-blur-md rounded-full text-white transition">
-                    <Share2 className="w-6 h-6" />
-                  </div>
-                  <span className="text-xs font-bold">{reel.shares_count}</span>
-                </button>
-
-                {/* TASK 8 FIX: Report Reel button */}
-                {onOpenReport && (
-                  <button
-                    onClick={() => onOpenReport('reel', reel.id, reel.title)}
-                    className="flex flex-col items-center gap-1 cursor-pointer"
-                    title="Report reel"
-                  >
-                    <div className="p-3 bg-black/40 hover:bg-rose-700/70 backdrop-blur-md rounded-full text-white transition">
-                      <Flag className="w-6 h-6" />
+                {/* Play/Pause overlay indicator when tapped */}
+                {!isPlaying && activeReelIdx === idx && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/20 pointer-events-none">
+                    <div className="p-4 bg-black/60 backdrop-blur-md rounded-full text-white">
+                      <Play className="w-8 h-8 fill-current translate-x-0.5" />
                     </div>
-                    <span className="text-[10px] font-bold text-white/80">Report</span>
-                  </button>
+                  </div>
                 )}
-              </div>
 
-            {/* Bottom Content Area (Title, Creator, Linked Property, Send Enquiry) */}
-            <div className="absolute left-4 right-16 bottom-6 z-20 space-y-2.5 text-white">
-              {/* Creator Info */}
-              {reel.creator && (
-                <div className="flex items-center gap-2">
-                  <span className="font-bold text-sm text-white drop-shadow">
-                    @{reel.creator.agency_name || reel.creator.full_name}
-                  </span>
-                  {reel.creator.verified && (
-                    <span className="flex items-center gap-0.5 text-[10px] font-bold uppercase bg-emerald-500 text-white px-1.5 py-0.2 rounded-full">
-                      <ShieldCheck className="w-3 h-3" /> Verified
-                    </span>
+                {/* Gradient Overlay at Bottom for Readable Text */}
+                <div className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black/90 via-black/40 to-transparent pointer-events-none" />
+
+                {/* Right Action Sidebar (Instagram Style: Like, Comment, Save, Share, Report) */}
+                <div className="absolute right-3 bottom-16 z-20 flex flex-col items-center gap-4 text-white">
+                  {/* Creator Avatar with Instagram Story Ring */}
+                  {reel.creator && (
+                    <div className="relative mb-1">
+                      <div className="p-[2px] bg-gradient-to-tr from-amber-500 via-rose-500 to-purple-600 rounded-full shadow-lg">
+                        <img
+                          src={reel.creator.avatar_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100'}
+                          alt={reel.creator.full_name}
+                          className="w-10 h-10 rounded-full object-cover border-2 border-black"
+                        />
+                      </div>
+                      <button
+                        onClick={() => handleToggleFollow(reel.user_id)}
+                        className={`absolute -bottom-1 left-1/2 -translate-x-1/2 rounded-full p-0.5 shadow transition ${
+                          reel.is_following_creator ? 'bg-emerald-500 text-white' : 'bg-rose-500 text-white'
+                        }`}
+                      >
+                        {reel.is_following_creator ? <Check className="w-3 h-3" /> : <Plus className="w-3 h-3" />}
+                      </button>
+                    </div>
                   )}
-                </div>
-              )}
 
-              {/* Title & Caption */}
-              <h3 className="font-bold text-base line-clamp-1 drop-shadow-sm">{reel.title}</h3>
-              {reel.caption && (
-                <p className="text-xs text-slate-200 line-clamp-2 leading-relaxed opacity-95">
-                  {reel.caption}
-                </p>
-              )}
-
-              {/* LINKED PROPERTY PILL - Reel -> Property linkage */}
-              {reel.property && (
-                <div 
-                  onClick={() => onOpenProperty(reel.property!)}
-                  className="p-2.5 bg-white/15 hover:bg-white/25 backdrop-blur-md rounded-2xl border border-white/20 cursor-pointer transition flex items-center justify-between gap-2 text-xs"
-                >
-                  <div className="flex items-center gap-2 truncate">
-                    <div className="p-1.5 bg-indigo-600 rounded-lg text-white">
-                      <Building className="w-4 h-4" />
+                  {/* Like Button */}
+                  <button
+                    onClick={() => handleToggleLike(reel)}
+                    className="flex flex-col items-center gap-1 group cursor-pointer"
+                  >
+                    <div className={`p-2.5 rounded-full backdrop-blur-md transition group-active:scale-125 ${
+                      isLiked ? 'text-rose-500' : 'text-white hover:text-slate-300'
+                    }`}>
+                      <Heart className={`w-7 h-7 ${isLiked ? 'fill-rose-500 text-rose-500' : ''}`} />
                     </div>
-                    <div className="truncate">
-                      <span className="font-bold block truncate">{reel.property.title}</span>
-                      <span className="text-[11px] text-emerald-300 font-extrabold">
-                        {formatPrice(reel.property.price, reel.property.listing_type)}
+                    <span className="text-[11px] font-bold drop-shadow">{likesCount}</span>
+                  </button>
+
+                  {/* Comment Button */}
+                  <button
+                    onClick={() => handleOpenComments(reel)}
+                    className="flex flex-col items-center gap-1 group cursor-pointer"
+                  >
+                    <div className="p-2.5 text-white hover:text-slate-300 backdrop-blur-md rounded-full transition group-active:scale-110">
+                      <MessageCircle className="w-7 h-7" />
+                    </div>
+                    <span className="text-[11px] font-bold drop-shadow">{commentsCount}</span>
+                  </button>
+
+                  {/* Save Reel Button */}
+                  <button
+                    onClick={() => handleToggleSave(reel)}
+                    className="flex flex-col items-center gap-1 group cursor-pointer"
+                  >
+                    <div className={`p-2.5 rounded-full backdrop-blur-md transition group-active:scale-110 ${
+                      isSaved ? 'text-amber-400' : 'text-white hover:text-slate-300'
+                    }`}>
+                      <Bookmark className={`w-7 h-7 ${isSaved ? 'fill-amber-400 text-amber-400' : ''}`} />
+                    </div>
+                    <span className="text-[11px] font-bold drop-shadow">{reel.saves_count}</span>
+                  </button>
+
+                  {/* Share Button (Instagram Paper Plane) */}
+                  <button
+                    onClick={() => handleShare(reel)}
+                    className="flex flex-col items-center gap-1 cursor-pointer"
+                  >
+                    <div className="p-2.5 text-white hover:text-slate-300 backdrop-blur-md rounded-full transition">
+                      <Share2 className="w-7 h-7" />
+                    </div>
+                    <span className="text-[11px] font-bold drop-shadow">{reel.shares_count}</span>
+                  </button>
+
+                  {/* Report Button / 3 Dots */}
+                  {onOpenReport && (
+                    <button
+                      onClick={() => onOpenReport('reel', reel.id, reel.title)}
+                      className="flex flex-col items-center gap-1 cursor-pointer"
+                      title="More options / Report"
+                    >
+                      <div className="p-2 text-white/80 hover:text-white transition">
+                        <MoreVertical className="w-6 h-6" />
+                      </div>
+                    </button>
+                  )}
+
+                  {/* Instagram Vinyl Audio Sound Disc */}
+                  <div className="relative mt-1">
+                    <div className="w-8 h-8 rounded-full bg-slate-900 border-2 border-slate-700 overflow-hidden animate-spin duration-3000 flex items-center justify-center shadow-lg">
+                      <img
+                        src={reel.creator?.avatar_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=60'}
+                        alt="Audio track"
+                        className="w-4 h-4 rounded-full object-cover"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Bottom Content Area (Title, Creator, Audio Ticker, Linked Property, Action Buttons) */}
+                <div className="absolute left-4 right-16 bottom-6 z-20 space-y-2 text-white">
+                  {/* Creator Info */}
+                  {reel.creator && (
+                    <div className="flex items-center gap-2">
+                      <span className="font-extrabold text-sm text-white drop-shadow">
+                        @{reel.creator.agency_name || reel.creator.full_name}
+                      </span>
+                      {reel.creator.verified && (
+                        <span className="flex items-center gap-0.5 text-[10px] font-bold uppercase bg-emerald-500 text-white px-1.5 py-0.2 rounded-full">
+                          <ShieldCheck className="w-3 h-3" /> Verified
+                        </span>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Title & Caption */}
+                  <h3 className="font-bold text-sm line-clamp-1 drop-shadow-sm">{reel.title}</h3>
+                  {reel.caption && (
+                    <p className="text-xs text-slate-200 line-clamp-2 leading-relaxed opacity-95">
+                      {reel.caption}
+                    </p>
+                  )}
+
+                  {/* Audio Ticker (Instagram Style Audio Bar) */}
+                  <div className="flex items-center gap-2 text-[11px] text-slate-300 font-medium">
+                    <Music className="w-3.5 h-3.5 text-slate-200 animate-pulse shrink-0" />
+                    <span className="truncate">Original Audio - @{reel.creator?.full_name || 'IndoProperty'}</span>
+                  </div>
+
+                  {/* LINKED PROPERTY PILL - Reel -> Property linkage */}
+                  {reel.property && (
+                    <div 
+                      onClick={() => onOpenProperty(reel.property!)}
+                      className="p-2.5 bg-white/15 hover:bg-white/25 backdrop-blur-md rounded-2xl border border-white/20 cursor-pointer transition flex items-center justify-between gap-2 text-xs"
+                    >
+                      <div className="flex items-center gap-2 truncate">
+                        <div className="p-1.5 bg-indigo-600 rounded-lg text-white">
+                          <Building className="w-4 h-4" />
+                        </div>
+                        <div className="truncate">
+                          <span className="font-bold block truncate">{reel.property.title}</span>
+                          <span className="text-[11px] text-emerald-300 font-extrabold">
+                            {formatPrice(reel.property.price, reel.property.listing_type)}
+                          </span>
+                        </div>
+                      </div>
+                      <span className="px-2.5 py-1 bg-white text-slate-900 font-bold text-[10px] rounded-lg shrink-0">
+                        View
                       </span>
                     </div>
-                  </div>
-                  <span className="px-2.5 py-1 bg-white text-slate-900 font-bold text-[10px] rounded-lg shrink-0">
-                    View
-                  </span>
-                </div>
-              )}
+                  )}
 
-              {/* Send Direct Enquiry & Direct Chat Buttons */}
-              <div className="flex items-center gap-2">
-                {onOpenDirectChat && (
-                  <button
-                    onClick={() => onOpenDirectChat(reel.user_id || reel.creator?.id || 'user-broker-1', reel.property, reel)}
-                    className="flex-1 py-2.5 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-xl text-xs shadow-lg shadow-purple-500/30 flex items-center justify-center gap-1.5 transition cursor-pointer"
-                  >
-                    <MessageCircle className="w-3.5 h-3.5" /> Direct Chat
-                  </button>
-                )}
-                <button
-                  onClick={() => onOpenEnquiry(reel)}
-                  className="flex-1 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold rounded-xl text-xs shadow-lg shadow-indigo-500/30 flex items-center justify-center gap-1.5 transition cursor-pointer"
-                >
-                  <Send className="w-3.5 h-3.5" /> Send Enquiry
-                </button>
+                  {/* Send Direct Enquiry & Direct Chat Buttons */}
+                  <div className="flex items-center gap-2 pt-1">
+                    {onOpenDirectChat && (
+                      <button
+                        onClick={() => onOpenDirectChat(reel.user_id || reel.creator?.id || 'user-broker-1', reel.property, reel)}
+                        className="flex-1 py-2.5 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-xl text-xs shadow-lg shadow-purple-500/30 flex items-center justify-center gap-1.5 transition cursor-pointer"
+                      >
+                        <MessageCircle className="w-3.5 h-3.5" /> Direct Chat
+                      </button>
+                    )}
+                    <button
+                      onClick={() => onOpenEnquiry(reel)}
+                      className="flex-1 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold rounded-xl text-xs shadow-lg shadow-indigo-500/30 flex items-center justify-center gap-1.5 transition cursor-pointer"
+                    >
+                      <Send className="w-3.5 h-3.5" /> Send Enquiry
+                    </button>
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
-        );
-      })
-    )}
-  </div>
+            );
+          })
+        )}
+      </div>
 
       {/* COMMENTS DRAWER MODAL */}
       {commentDrawerReel && (
@@ -522,6 +601,16 @@ export const ReelsFeed: React.FC<ReelsFeedProps> = ({
           </div>
         </div>
       )}
+
+      {/* SHARE MODAL */}
+      <ShareModal
+        isOpen={Boolean(shareModalReel)}
+        onClose={() => setShareModalReel(null)}
+        title={shareModalReel?.title || 'Property Reel'}
+        text={shareModalReel?.caption || shareModalReel?.title}
+        url={window.location.href}
+        imageUrl={shareModalReel?.thumbnail_url}
+      />
     </div>
   );
 };

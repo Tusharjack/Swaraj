@@ -132,7 +132,7 @@ export const CreatePropertyModal: React.FC<CreatePropertyModalProps> = ({
             </div>
             <div>
               <h3 className="font-bold text-lg">List New Property</h3>
-              <p className="text-xs text-slate-300">Publish property directly to SWARAJ customer discovery</p>
+              <p className="text-xs text-slate-300">Publish property directly to IndoProperty customer discovery</p>
             </div>
           </div>
           <button onClick={onClose} className="text-slate-400 hover:text-white text-xl font-bold">✕</button>

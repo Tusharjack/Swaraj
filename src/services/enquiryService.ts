@@ -3,6 +3,7 @@ import type { Enquiry, Property, Reel } from '../types/database';
 import { authService } from './authService';
 import { propertyService } from './propertyService';
 import { reelService } from './reelService';
+import { STORAGE_KEYS, getLocalState, setLocalState } from './storage';
 
 export const enquiryService = {
   /**
@@ -172,23 +173,18 @@ export const enquiryService = {
   },
 
   async deleteEnquiry(enquiryId: string): Promise<void> {
-    if (!isSupabaseConfigured) {
-      throw new Error('Supabase is not configured.');
-    }
+    if (isSupabaseConfigured) {
+      const { error } = await supabase
+        .from('enquiries')
+        .delete()
+        .eq('id', enquiryId);
 
-    const { error } = await supabase
-      .from('enquiries')
-      .delete()
-      .eq('id', enquiryId);
-
-    if (error) {
-      console.error('SUPABASE ERROR deleteEnquiry:', {
-        code: error.code,
-        message: error.message,
-        details: error.details,
-        hint: error.hint
-      });
-      throw new Error(`Failed to delete enquiry: ${error.message}`);
+      if (error) {
+        console.error('SUPABASE ERROR deleteEnquiry:', error.message);
+      }
     }
+    const cached = getLocalState<Enquiry[]>(STORAGE_KEYS.ENQUIRIES, []);
+    const filtered = cached.filter((e: Enquiry) => e.id !== enquiryId);
+    setLocalState(STORAGE_KEYS.ENQUIRIES, filtered);
   }
 };

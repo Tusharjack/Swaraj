@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { DeleteAccountPage } from './components/DeleteAccountPage';
 import { Navbar } from './components/Navbar';
 import { BottomNav } from './components/BottomNav';
 import { PropertyCard } from './components/PropertyCard';
@@ -18,11 +19,19 @@ import { CreateReelModal } from './components/CreateReelModal';
 import { ChatModal } from './components/ChatModal';
 import { ChatInbox } from './components/ChatInbox';
 import { ReportModal } from './components/ReportModal';
-import type { Profile, Property, Reel, Enquiry } from './types/database';
+import type { Profile, Property, Reel, Enquiry, UserRole } from './types/database';
 import { api, idsEqual } from './services/api';
 import { Sparkles, Building2, Heart, Film } from 'lucide-react';
 
 export function App() {
+  // ── Public route: /delete-account ──────────────────────────────────────────
+  // Checked before any auth/data loading so the page is accessible without
+  // signing in — required by Google Play Store account-deletion policy.
+  if (typeof window !== 'undefined' &&
+      window.location.pathname === '/delete-account') {
+    return <DeleteAccountPage />;
+  }
+
   const [currentTab, setCurrentTab] = useState<'properties' | 'reels' | 'chats' | 'saved' | 'professional' | 'admin'>('properties');
   const [currentUser, setCurrentUser] = useState<Profile | null>(null);
   const [allProfiles, setAllProfiles] = useState<Profile[]>([]);
@@ -47,6 +56,7 @@ export function App() {
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
   const [enquiryTarget, setEnquiryTarget] = useState<{ property?: Property | null; reel?: Reel | null } | null>(null);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
+  const [authRole] = useState<UserRole>('customer');
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isSupabaseConfigOpen, setIsSupabaseConfigOpen] = useState(false);
   const [isCreatePropertyOpen, setIsCreatePropertyOpen] = useState(false);
@@ -128,9 +138,9 @@ export function App() {
   };
   const handleCloseReport = () => setReportState(prev => ({ ...prev, open: false }));
 
-  // Initial Data Load — BUG 5 FIX: all independent calls run in parallel via Promise.all
+  // Initial Data Load — reference preserving to prevent screen flickering
   const loadData = async (isInitialCall = false) => {
-    if (isInitialCall || properties.length === 0) {
+    if (isInitialCall && properties.length === 0) {
       setIsLoading(true);
     }
     try {
@@ -143,25 +153,42 @@ export function App() {
       ]);
       setCurrentUser(user);
       setAllProfiles(profiles);
-      setProperties(propsList);
-      setReels(reelsList);
-      setSavedPropertyIds(savedIds);
+
+      setProperties(prev => {
+        if (prev.length > 0 && JSON.stringify(prev) === JSON.stringify(propsList)) return prev;
+        return propsList;
+      });
+      setReels(prev => {
+        if (prev.length > 0 && JSON.stringify(prev) === JSON.stringify(reelsList)) return prev;
+        return reelsList;
+      });
+      setSavedPropertyIds(prev => {
+        if (prev.length > 0 && JSON.stringify(prev) === JSON.stringify(savedIds)) return prev;
+        return savedIds;
+      });
     } finally {
-      setIsLoading(false);
+      if (isInitialCall) {
+        setIsLoading(false);
+      }
     }
   };
 
   useEffect(() => {
     loadData(true);
-    // Background polling every 10 seconds so Client account automatically picks up new posts
+    // Background polling every 12 seconds
     const interval = setInterval(() => {
       loadData(false);
-    }, 10000);
+    }, 12000);
     return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
-    api.getProperties(filters).then(setProperties);
+    api.getProperties(filters).then(props => {
+      setProperties(prev => {
+        if (JSON.stringify(prev) === JSON.stringify(props)) return prev;
+        return props;
+      });
+    });
   }, [filters]);
 
   const handleSelectProperty = (property: Property) => {
@@ -192,8 +219,6 @@ export function App() {
       const without = prev.filter(r => r.id !== newReel.id);
       return [newReel, ...without];
     });
-    // Background light-sync (optional; non-blocking) to ensure any server joins
-    // like creator/profile are reflected — but NOT before showing the reel.
     setTimeout(() => {
       api.getReels().then(fresh => setReels(fresh));
     }, 3000);
@@ -210,36 +235,71 @@ export function App() {
     loadData();
   };
 
+  const handlePostPropertyAction = () => {
+    if (!currentUser) {
+      setIsAuthOpen(true);
+    } else {
+      setCurrentTab('professional');
+      setIsCreatePropertyOpen(true);
+    }
+  };
+
   const savedPropertiesList = properties.filter(p => savedPropertyIds.includes(p.id));
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans selection:bg-indigo-500 selection:text-white pb-20 md:pb-6">
-      {/* Top Navbar */}
-      <Navbar
-        currentTab={currentTab}
-        onTabChange={setCurrentTab}
-        currentUser={currentUser}
-        onOpenAuth={() => {
-          if (currentUser) setIsProfileOpen(true);
-          else setIsAuthOpen(true);
-        }}
-        savedCount={savedPropertyIds.length}
-      />
+    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans selection:bg-indigo-500 selection:text-white pb-16 md:pb-6">
+      {/* Top Navbar — hidden on mobile in Reels tab for immersive full-screen Instagram Reels experience */}
+      {currentTab !== 'reels' && (
+        <Navbar
+          currentTab={currentTab}
+          onTabChange={setCurrentTab}
+          currentUser={currentUser}
+          onOpenAuth={() => {
+            if (currentUser) setIsProfileOpen(true);
+            else setIsAuthOpen(true);
+          }}
+          savedCount={savedPropertyIds.length}
+        />
+      )}
+      {currentTab === 'reels' && (
+        <div className="hidden md:block">
+          <Navbar
+            currentTab={currentTab}
+            onTabChange={setCurrentTab}
+            currentUser={currentUser}
+            onOpenAuth={() => {
+              if (currentUser) setIsProfileOpen(true);
+              else setIsAuthOpen(true);
+            }}
+            savedCount={savedPropertyIds.length}
+          />
+        </div>
+      )}
 
       {/* Hero Welcome Header */}
       {currentTab === 'properties' && (
         <section className="bg-gradient-to-b from-white to-slate-50 border-b border-slate-200/60 py-10 px-4 sm:px-6 lg:px-8">
           <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
-            <div className="space-y-3 text-center md:text-left">
+            <div className="space-y-4 text-center md:text-left">
               <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-50 border border-indigo-200 text-indigo-700 text-xs font-bold">
-                <Sparkles className="w-3.5 h-3.5 text-indigo-600" /> India's Next-Gen Real Estate & Video Platform
+                <Sparkles className="w-3.5 h-3.5 text-indigo-600" /> IndoProperty — Real Estate for a Better Tomorrow
               </div>
               <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-slate-900 tracking-tight leading-tight">
-                Discover Verified Homes with <span className="text-indigo-600">Video Reels</span>
+                Discover & Post Verified Homes with <span className="text-indigo-600">Video Reels</span>
               </h1>
               <p className="text-sm sm:text-base text-slate-600 max-w-2xl font-medium">
                 Explore luxury apartments, sea-facing penthouses & villas with immersive vertical video walkthroughs and instant direct enquiries.
               </p>
+              
+              {/* Mainpage Post Button */}
+              <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 pt-2">
+                <button
+                  onClick={handlePostPropertyAction}
+                  className="px-6 py-3.5 bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-700 hover:from-indigo-700 hover:to-purple-700 text-white font-extrabold text-sm rounded-2xl shadow-xl shadow-indigo-500/25 flex items-center gap-2 transition active:scale-98 cursor-pointer"
+                >
+                  <Sparkles className="w-4 h-4 text-amber-300" /> + Post Property to Dashboard
+                </button>
+              </div>
             </div>
           </div>
         </section>
@@ -247,7 +307,7 @@ export function App() {
 
       {/* Main Container */}
       {currentTab === 'reels' ? (
-        <main className="flex-1 w-full bg-slate-950 flex flex-col justify-center items-center relative overflow-hidden">
+        <main className="flex-1 w-full bg-black flex flex-col justify-center items-center relative overflow-hidden">
           {reels.length === 0 ? (
             <div className="bg-slate-900 max-w-md mx-auto rounded-3xl p-10 text-center border border-slate-800 shadow-2xl space-y-4 text-white">
               <Heart className="w-12 h-12 text-purple-400 mx-auto" />
@@ -264,7 +324,7 @@ export function App() {
               </button>
             </div>
           ) : (
-            <div className="w-full h-[calc(100vh-4rem-3.75rem)] md:h-[calc(100vh-4.5rem)] flex items-center justify-center">
+            <div className="w-full h-[calc(100vh-3.5rem)] md:h-[calc(100vh-4.5rem)] flex items-center justify-center">
               <ReelsFeed
                 reels={reels}
                 onOpenProperty={handleSelectProperty}
@@ -277,6 +337,7 @@ export function App() {
                 }}
                 onOpenDirectChat={handleOpenDirectChat}
                 onOpenReport={handleOpenReport}
+                onOpenAuth={() => setIsAuthOpen(true)}
               />
             </div>
           )}
@@ -543,6 +604,7 @@ export function App() {
           loadData();
         }}
         profilesList={allProfiles}
+        initialRole={authRole}
       />
 
       <ProfileModal

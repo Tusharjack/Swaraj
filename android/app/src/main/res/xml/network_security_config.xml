@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Network Security Config for SWARAJ
+  - Enforces HTTPS for all network traffic (no cleartext HTTP allowed)
+  - Supabase and all API calls already use HTTPS, so no exceptions needed
+  - Trust only the system CA store (no user-installed CAs trusted in release)
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <!-- Trust the system (device) certificate store only -->
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

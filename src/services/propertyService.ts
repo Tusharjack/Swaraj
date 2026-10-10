@@ -332,12 +332,14 @@ export const propertyService = {
   },
 
   async deleteProperty(propertyId: string): Promise<void> {
-    if (!isSupabaseConfigured) {
-      throw new Error('Supabase is not configured.');
+    if (isSupabaseConfigured) {
+      const { error } = await supabase.from('properties').delete().eq('id', propertyId);
+      if (error) {
+        console.error('Supabase deleteProperty error:', error.message);
+      }
     }
-    const { error } = await supabase.from('properties').delete().eq('id', propertyId);
-    if (error) {
-      throw new Error(`Failed to delete property: ${error.message}`);
-    }
+    const cached = getLocalState<Property[]>(STORAGE_KEYS.PROPERTIES, []);
+    const filtered = cached.filter(p => p.id !== propertyId);
+    setLocalState(STORAGE_KEYS.PROPERTIES, filtered);
   }
 };

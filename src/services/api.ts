@@ -21,7 +21,9 @@ export const api = {
   getAllUsers: authService.getAllUsers.bind(authService),
   toggleUserVerification: authService.toggleUserVerification.bind(authService),
   updateUserRole: authService.updateUserRole.bind(authService),
+  deleteUser: authService.deleteUser.bind(authService),
   resetPlatformData: authService.resetPlatformData.bind(authService),
+  deleteAccount: authService.deleteAccount.bind(authService),
 
   // Properties
   getProperties: propertyService.getProperties.bind(propertyService),

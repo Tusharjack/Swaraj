@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>IndoProperty — Real Estate for a Better Tomorrow</title>
+<meta name="description" content="IndoProperty is India's modern real-estate platform. Discover properties, watch video reels, and connect directly with owners and brokers."/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{font-size:16px;scroll-behavior:smooth}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;background:#f8fafc;color:#1e293b;line-height:1.6;min-height:100vh;display:flex;flex-direction:column}
+a{color:#4f46e5;text-decoration:none}
+a:hover{text-decoration:underline}
+
+/* NAV */
+.nav{background:#fff;border-bottom:1px solid #e2e8f0;position:sticky;top:0;z-index:100;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.nav-inner{max-width:900px;margin:0 auto;padding:.875rem 1.25rem;display:flex;align-items:center;justify-content:space-between;gap:1rem}
+.logo{display:flex;align-items:center;gap:.6rem;text-decoration:none}
+.logo-box{width:36px;height:36px;background:#4f46e5;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.logo-box svg{width:20px;height:20px}
+.logo-name{font-size:.95rem;font-weight:800;color:#1e293b;display:block;line-height:1.1}
+.logo-tag{font-size:.62rem;color:#64748b;display:block}
+.nav-links{display:flex;gap:.15rem;flex-wrap:wrap}
+.nav-links a{font-size:.78rem;font-weight:600;color:#64748b;padding:.38rem .6rem;border-radius:8px;white-space:nowrap}
+.nav-links a:hover,.nav-links a.active{background:#ede9fe;color:#4f46e5;text-decoration:none}
+
+/* MAIN */
+main{flex:1;padding:2.5rem 0 4rem}
+.wrap{max-width:900px;margin:0 auto;padding:0 1.25rem}
+.wrap-sm{max-width:660px;margin:0 auto;padding:0 1.25rem}
+
+/* HERO */
+.hero{text-align:center;padding:2.5rem 1rem 2rem;background:#fff;border-bottom:1px solid #e2e8f0;margin-bottom:2.5rem}
+.hero-icon{width:60px;height:60px;border-radius:18px;background:#ede9fe;display:flex;align-items:center;justify-content:center;margin:0 auto 1rem}
+.hero-icon svg{width:30px;height:30px}
+.hero h1{font-size:clamp(1.5rem,4vw,2.2rem);font-weight:800;color:#1e293b;letter-spacing:-.02em;margin-bottom:.5rem}
+.hero p{font-size:1rem;color:#64748b;max-width:540px;margin:0 auto}
+
+/* CARDS */
+.card{background:#fff;border:1px solid #e2e8f0;border-radius:18px;padding:1.75rem;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.card+.card{margin-top:1.25rem}
+.card h2{font-size:1.05rem;font-weight:700;color:#1e293b;margin-bottom:1rem;display:flex;align-items:center;gap:.45rem}
+
+/* FEATURE GRID */
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:1rem;margin-top:1.5rem}
+.feat{background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:1.5rem 1.25rem;text-align:center;text-decoration:none;display:block;transition:box-shadow .15s,border-color .15s}
+.feat:hover{box-shadow:0 4px 12px rgba(0,0,0,.08);border-color:#c7d2fe;text-decoration:none}
+.feat .fi{font-size:2rem;margin-bottom:.75rem}
+.feat h3{font-size:.92rem;font-weight:700;color:#1e293b;margin-bottom:.3rem}
+.feat p{font-size:.8rem;color:#64748b;line-height:1.5}
+
+/* LIST */
+ul.ql{list-style:none;padding:0;display:grid;gap:.45rem}
+ul.ql li{font-size:.9rem;color:#475569}
+ul.ql li a{color:#4f46e5}
+
+/* FOOTER */
+footer{background:#fff;border-top:1px solid #e2e8f0;padding:1.75rem 0;margin-top:auto;text-align:center}
+.foot-links{display:flex;flex-wrap:wrap;gap:.25rem .875rem;justify-content:center;margin-bottom:.5rem}
+.foot-links a{font-size:.78rem;color:#64748b}
+.foot-links a:hover{color:#4f46e5}
+.copy{font-size:.73rem;color:#94a3b8}
+
+@media(max-width:600px){.nav-links a{font-size:.72rem;padding:.32rem .45rem}main{padding:1.5rem 0 3rem}.card{padding:1.25rem}.hero{padding:1.75rem 1rem 1.5rem;margin-bottom:1.75rem}}
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-inner">
+    <a href="index.html" class="logo">
+      <div class="logo-box">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 9.5L12 3l9 6.5V21H3V9.5z"/><rect x="9" y="14" width="6" height="7"/>
+        </svg>
+      </div>
+      <div>
+        <span class="logo-name">IndoProperty</span>
+        <span class="logo-tag">Real Estate for a Better Tomorrow</span>
+      </div>
+    </a>
+    <div class="nav-links">
+      <a href="index.html" class="active">Home</a>
+      <a href="privacy-policy.html">Privacy</a>
+      <a href="terms.html">Terms</a>
+      <a href="delete-account.html">Delete Account</a>
+      <a href="contact.html">Contact</a>
+    </div>
+  </div>
+</nav>
+
+<main>
+  <div class="hero">
+    <div class="hero-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#4f46e5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3 9.5L12 3l9 6.5V21H3V9.5z"/><rect x="9" y="14" width="6" height="7"/>
+      </svg>
+    </div>
+    <h1>India's Next-Gen Real Estate Platform</h1>
+    <p>Discover verified homes, watch immersive property video reels, and connect directly with owners, brokers, and builders — all in one app.</p>
+  </div>
+
+  <div class="wrap">
+    <div class="grid">
+      <a href="privacy-policy.html" class="feat"><div class="fi">🔒</div><h3>Privacy Policy</h3><p>How we collect, use, and protect your personal data.</p></a>
+      <a href="terms.html" class="feat"><div class="fi">📋</div><h3>Terms of Service</h3><p>Rules and responsibilities for using IndoProperty.</p></a>
+      <a href="delete-account.html" class="feat"><div class="fi">🗑️</div><h3>Delete Account</h3><p>Permanently remove your account and all your data.</p></a>
+      <a href="contact.html" class="feat"><div class="fi">✉️</div><h3>Contact &amp; Support</h3><p>Get help, report an issue, or reach our support team.</p></a>
+    </div>
+
+    <div class="card" style="margin-top:2rem">
+      <h2>🏙️ About IndoProperty</h2>
+      <p style="color:#475569;font-size:.92rem;margin-bottom:.8rem">IndoProperty is a modern real-estate platform built for India. Whether you're looking to buy, sell, rent, or lease — our platform connects you with verified listings, professional brokers, and builders across major Indian cities.</p>
+      <p style="color:#475569;font-size:.92rem;margin-bottom:.8rem">Our unique video-reel feature lets you watch immersive property walkthroughs before you visit, saving you time and giving you a real feel for the space.</p>
+      <p style="color:#475569;font-size:.92rem"><strong>Available on Android</strong> via Google Play Store &mdash; package: <code style="background:#f1f5f9;padding:.1rem .4rem;border-radius:5px;font-size:.82rem">com.swaraj.realestate</code></p>
+    </div>
+
+    <div class="card">
+      <h2>⚡ Quick Links</h2>
+      <ul class="ql">
+        <li><a href="privacy-policy.html">Privacy Policy</a> — how your data is handled</li>
+        <li><a href="terms.html">Terms of Service</a> — platform rules and responsibilities</li>
+        <li><a href="delete-account.html">Delete Your Account</a> — permanently remove all your data</li>
+        <li><a href="contact.html">Contact Support</a> — get help or report an issue</li>
+        <li><a href="mailto:support@indoproperty.in">support@indoproperty.in</a> — direct support email</li>
+      </ul>
+    </div>
+  </div>
+</main>
+
+<footer>
+  <div class="foot-links">
+    <a href="index.html">Home</a>
+    <a href="privacy-policy.html">Privacy Policy</a>
+    <a href="terms.html">Terms of Service</a>
+    <a href="delete-account.html">Delete Account</a>
+    <a href="contact.html">Contact</a>
+  </div>
+  <p class="copy">&copy; <span id="yr"></span> IndoProperty. All rights reserved. &middot; support@indoproperty.in</p>
+</footer>
+<script>document.getElementById('yr').textContent=new Date().getFullYear();</script>
+</body>
+</html>

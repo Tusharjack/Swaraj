@@ -54,10 +54,16 @@ export const ProfessionalDashboard: React.FC<ProfessionalDashboardProps> = ({
 
   const pollEnquiries = async () => {
     const userEnqs = await api.getEnquiriesForUser(currentUser.id);
-    setEnquiries(userEnqs);
+    setEnquiries(prev => {
+      if (JSON.stringify(prev) === JSON.stringify(userEnqs)) return prev;
+      return userEnqs;
+    });
     try {
       const counts = await api.getUnreadCountsByEnquiry(currentUser.id);
-      setUnreadCounts(counts);
+      setUnreadCounts(prev => {
+        if (JSON.stringify(prev) === JSON.stringify(counts)) return prev;
+        return counts;
+      });
     } catch (_e) {}
   };
 

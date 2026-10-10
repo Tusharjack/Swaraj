@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Delete Your IndoProperty Account</title>
+<meta name="description" content="Request permanent deletion of your IndoProperty account and all associated data."/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{font-size:16px;scroll-behavior:smooth}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;background:#f8fafc;color:#1e293b;line-height:1.6;min-height:100vh;display:flex;flex-direction:column}
+a{color:#4f46e5;text-decoration:none}
+a:hover{text-decoration:underline}
+
+.nav{background:#fff;border-bottom:1px solid #e2e8f0;position:sticky;top:0;z-index:100;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.nav-inner{max-width:700px;margin:0 auto;padding:.875rem 1.25rem;display:flex;align-items:center;justify-content:space-between;gap:1rem}
+.logo{display:flex;align-items:center;gap:.6rem;text-decoration:none}
+.logo-box{width:36px;height:36px;background:#4f46e5;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.logo-box svg{width:20px;height:20px}
+.logo-name{font-size:.95rem;font-weight:800;color:#1e293b;display:block;line-height:1.1}
+.logo-tag{font-size:.62rem;color:#64748b;display:block}
+.nav-links{display:flex;gap:.15rem;flex-wrap:wrap}
+.nav-links a{font-size:.78rem;font-weight:600;color:#64748b;padding:.38rem .6rem;border-radius:8px;white-space:nowrap}
+.nav-links a:hover,.nav-links a.active{background:#ede9fe;color:#4f46e5;text-decoration:none}
+
+main{flex:1;padding:2.5rem 0 4rem}
+.wrap{max-width:700px;margin:0 auto;padding:0 1.25rem}
+
+.hero{text-align:center;padding:2.5rem 1rem 2rem;background:#fff;border-bottom:1px solid #e2e8f0;margin-bottom:2rem}
+.hero-icon{width:60px;height:60px;border-radius:18px;background:#fef2f2;display:flex;align-items:center;justify-content:center;margin:0 auto 1rem}
+.hero-icon svg{width:30px;height:30px}
+.hero h1{font-size:clamp(1.4rem,4vw,2.1rem);font-weight:800;color:#1e293b;letter-spacing:-.02em;margin-bottom:.5rem}
+.hero p{font-size:.95rem;color:#64748b;max-width:500px;margin:0 auto}
+
+.card{background:#fff;border:1px solid #e2e8f0;border-radius:18px;padding:1.75rem;box-shadow:0 1px 3px rgba(0,0,0,.06);margin-bottom:1.25rem}
+.card h2{font-size:1.05rem;font-weight:700;color:#1e293b;margin-bottom:1rem;display:flex;align-items:center;gap:.45rem}
+
+.steps{list-style:none;padding:0;counter-reset:s;display:grid;gap:.7rem}
+.steps li{counter-increment:s;display:flex;align-items:flex-start;gap:.875rem;font-size:.9rem;color:#334155}
+.steps li::before{content:counter(s);flex-shrink:0;width:24px;height:24px;background:#4f46e5;color:#fff;font-size:.7rem;font-weight:800;border-radius:50%;display:flex;align-items:center;justify-content:center;margin-top:.12rem}
+
+.data-list{list-style:none;padding:0;display:grid;gap:.6rem}
+.data-list li{display:flex;align-items:flex-start;gap:.7rem;background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:.7rem .9rem;font-size:.88rem}
+.data-list li .di{font-size:1.2rem;flex-shrink:0}
+.data-list li strong{display:block;color:#1e293b;font-size:.85rem}
+.data-list li span{color:#64748b;font-size:.8rem}
+
+.alert{border-radius:12px;padding:.8rem 1rem;font-size:.86rem;display:flex;gap:.6rem;align-items:flex-start;margin-top:1rem}
+.alert-w{background:#fffbeb;border:1px solid #fde68a;color:#92400e}
+.alert-d{background:#fef2f2;border:1px solid #fecaca;color:#991b1b}
+.alert-s{background:#f0fdf4;border:1px solid #bbf7d0;color:#166534}
+.alert-i{background:#ede9fe;border:1px solid #c7d2fe;color:#3730a3}
+
+.form-group{margin-bottom:1rem}
+.form-group label{display:block;font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#475569;margin-bottom:.4rem}
+.form-group input,.form-group textarea,.form-group select{width:100%;padding:.65rem .9rem;border:1.5px solid #e2e8f0;border-radius:10px;font-size:.92rem;font-family:inherit;color:#1e293b;background:#fff;transition:border-color .15s,box-shadow .15s}
+.form-group input:focus,.form-group textarea:focus{outline:none;border-color:#4f46e5;box-shadow:0 0 0 3px rgba(79,70,229,.1)}
+.form-group textarea{resize:vertical;min-height:90px}
+.hint{font-size:.75rem;color:#64748b;margin-top:.3rem}
+
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:.4rem;padding:.7rem 1.5rem;border-radius:10px;font-size:.9rem;font-weight:700;font-family:inherit;cursor:pointer;border:none;transition:background .15s,opacity .15s;width:100%;margin-top:.25rem}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn-danger{background:#dc2626;color:#fff;box-shadow:0 2px 6px rgba(220,38,38,.2)}
+.btn-danger:hover:not(:disabled){background:#b91c1c}
+
+.spinner{width:15px;height:15px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite;display:inline-block}
+@keyframes spin{to{transform:rotate(360deg)}}
+.hidden{display:none!important}
+
+.faq-item{border:1px solid #e2e8f0;border-radius:12px;background:#fff;overflow:hidden;margin-bottom:.5rem}
+.faq-q{width:100%;background:none;border:none;text-align:left;padding:.85rem 1rem;font-size:.9rem;font-weight:600;font-family:inherit;color:#1e293b;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:.75rem}
+.faq-q:hover{background:#f8fafc}
+.chevron{font-size:.7rem;transition:transform .2s;flex-shrink:0}
+.faq-q[aria-expanded="true"] .chevron{transform:rotate(180deg)}
+.faq-a{display:none;padding:0 1rem .85rem;font-size:.86rem;color:#475569;line-height:1.65;border-top:1px solid #f1f5f9}
+.faq-a.open{display:block}
+
+footer{background:#fff;border-top:1px solid #e2e8f0;padding:1.75rem 0;margin-top:auto;text-align:center}
+.foot-links{display:flex;flex-wrap:wrap;gap:.25rem .875rem;justify-content:center;margin-bottom:.5rem}
+.foot-links a{font-size:.78rem;color:#64748b}
+.foot-links a:hover{color:#4f46e5}
+.copy{font-size:.73rem;color:#94a3b8}
+
+@media(max-width:600px){.nav-links a{font-size:.72rem;padding:.32rem .45rem}main{padding:1.5rem 0 3rem}.card{padding:1.25rem}}
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-inner">
+    <a href="index.html" class="logo">
+      <div class="logo-box">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 9.5L12 3l9 6.5V21H3V9.5z"/><rect x="9" y="14" width="6" height="7"/>
+        </svg>
+      </div>
+      <div>
+        <span class="logo-name">IndoProperty</span>
+        <span class="logo-tag">Real Estate for a Better Tomorrow</span>
+      </div>
+    </a>
+    <div class="nav-links">
+      <a href="index.html">Home</a>
+      <a href="privacy-policy.html">Privacy</a>
+      <a href="terms.html">Terms</a>
+      <a href="delete-account.html" class="active">Delete Account</a>
+      <a href="contact.html">Contact</a>
+    </div>
+  </div>
+</nav>
+
+<main>
+  <div class="hero">
+    <div class="hero-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/>
+      </svg>
+    </div>
+    <h1>Delete Your Account</h1>
+    <p>You can permanently delete your IndoProperty account and all associated data. This action is immediate and irreversible.</p>
+  </div>
+
+  <div class="wrap">
+
+    <!-- In-app method -->
+    <div class="card" style="border-color:#c7d2fe;background:#f5f3ff">
+      <h2>📱 Fastest: Delete Inside the App</h2>
+      <p style="color:#3730a3;font-size:.88rem;margin-bottom:1rem">The quickest way to delete your account is directly inside the IndoProperty Android app.</p>
+      <ol class="steps">
+        <li>Open the IndoProperty app and sign in.</li>
+        <li>Tap your profile avatar in the top-right corner.</li>
+        <li>Scroll to the bottom of Profile Settings.</li>
+        <li>Find the <strong>Danger Zone</strong> section and tap <strong>Delete Account</strong>.</li>
+        <li>Type <strong>DELETE</strong> in the confirmation box and confirm.</li>
+        <li>Your account and all data are deleted immediately.</li>
+      </ol>
+    </div>
+
+    <!-- What gets deleted -->
+    <div class="card">
+      <h2>📂 What Data Is Deleted</h2>
+      <p style="color:#475569;font-size:.86rem;margin-bottom:.9rem">All of the following is <strong>permanently and irreversibly removed</strong>:</p>
+      <ul class="data-list">
+        <li><span class="di">👤</span><div><strong>Profile &amp; Account</strong><span>Name, email, phone, city, bio, profile photo</span></div></li>
+        <li><span class="di">🏠</span><div><strong>Properties &amp; Listings</strong><span>All property posts, descriptions, and uploaded images</span></div></li>
+        <li><span class="di">🎬</span><div><strong>Video Reels</strong><span>All video reels, thumbnails, and metadata</span></div></li>
+        <li><span class="di">💬</span><div><strong>Enquiries &amp; Chat Messages</strong><span>All enquiries sent/received and chat history</span></div></li>
+        <li><span class="di">❤️</span><div><strong>Likes, Saves &amp; Follows</strong><span>Liked reels, saved properties, followed creators</span></div></li>
+        <li><span class="di">🔔</span><div><strong>Notifications</strong><span>All notification history</span></div></li>
+        <li><span class="di">📁</span><div><strong>Uploaded Files</strong><span>Photos and videos stored on IndoProperty's servers</span></div></li>
+      </ul>
+      <div class="alert alert-w">
+        <span>⚠️</span>
+        <div><strong>Data that may be retained:</strong> Aggregated, anonymised statistics with no personal identifiers may be kept. Data required under Indian law may be retained for the legally required period. No personally identifiable information is kept beyond legal requirements.</div>
+      </div>
+    </div>
+
+    <!-- Request form -->
+    <div class="card">
+      <h2>📧 Request Deletion by Email / Web</h2>
+      <p style="color:#475569;font-size:.86rem;margin-bottom:1.1rem">Can't access the app? Enter your registered email and password below to delete your account.</p>
+
+      <div id="del-error" class="alert alert-d hidden" role="alert"></div>
+
+      <form id="delete-form" novalidate>
+        <div class="form-group">
+          <label for="del-email">Registered Email <span style="color:#dc2626">*</span></label>
+          <input type="email" id="del-email" placeholder="you@example.com" required autocomplete="email"/>
+        </div>
+        <div class="form-group">
+          <label for="del-password">Account Password <span style="color:#dc2626">*</span></label>
+          <input type="password" id="del-password" placeholder="Your account password" required autocomplete="current-password"/>
+          <p class="hint">Required to verify your identity. Never stored or logged by this page.</p>
+        </div>
+        <div class="form-group">
+          <label for="del-reason">Reason for leaving <span style="font-weight:400;text-transform:none">(optional)</span></label>
+          <textarea id="del-reason" placeholder="Help us improve — why are you leaving?"></textarea>
+        </div>
+        <div class="alert alert-d" style="margin-bottom:1rem">
+          <span>⛔</span>
+          <div><strong>Warning:</strong> Account deletion is <strong>permanent and irreversible</strong>. All your data cannot be recovered.</div>
+        </div>
+        <button type="submit" id="del-submit" class="btn btn-danger">
+          <span id="del-spinner" class="spinner hidden"></span>
+          <span id="del-btn-text">Delete My Account Permanently</span>
+        </button>
+        <p style="text-align:center;font-size:.75rem;color:#94a3b8;margin-top:.75rem">
+          Can't sign in? Email: <a href="mailto:support@indoproperty.in?subject=Account%20Deletion%20Request">support@indoproperty.in</a>
+        </p>
+      </form>
+
+      <div id="del-success" class="hidden">
+        <div class="alert alert-s" style="margin-bottom:1rem">
+          ✅&nbsp;<div><strong>Account deleted successfully.</strong><br/>Your account (<strong id="confirmed-email"></strong>) and all associated data have been permanently removed. You can no longer sign in with this account.</div>
+        </div>
+        <p style="text-align:center;font-size:.88rem;color:#475569"><a href="index.html">← Return to IndoProperty</a></p>
+      </div>
+    </div>
+
+    <!-- FAQ -->
+    <div class="card">
+      <h2>❓ Frequently Asked Questions</h2>
+      <div id="faq">
+        <div class="faq-item">
+          <button class="faq-q" aria-expanded="false">How long does account deletion take? <span class="chevron">▼</span></button>
+          <div class="faq-a">Deletion via the app or this web form is <strong>immediate</strong> upon successful verification. Email requests to support@indoproperty.in are processed within 7 business days.</div>
+        </div>
+        <div class="faq-item">
+          <button class="faq-q" aria-expanded="false">Can I recover my account after deletion? <span class="chevron">▼</span></button>
+          <div class="faq-a">No. Account deletion is permanent and cannot be undone. All data is removed and cannot be recovered. You would need to create a new account to use IndoProperty again.</div>
+        </div>
+        <div class="faq-item">
+          <button class="faq-q" aria-expanded="false">What happens to the properties I listed? <span class="chevron">▼</span></button>
+          <div class="faq-a">All property listings and video reels you posted are immediately and permanently removed when your account is deleted.</div>
+        </div>
+        <div class="faq-item">
+          <button class="faq-q" aria-expanded="false">I forgot my password — how do I delete my account? <span class="chevron">▼</span></button>
+          <div class="faq-a">Email <a href="mailto:support@indoproperty.in?subject=Account%20Deletion%20Request">support@indoproperty.in</a> with the subject "Account Deletion Request" and your registered email address. We will verify your identity and delete your account within 7 business days.</div>
+        </div>
+        <div class="faq-item">
+          <button class="faq-q" aria-expanded="false">Will enquiries I sent to others be deleted? <span class="chevron">▼</span></button>
+          <div class="faq-a">Yes. All enquiries you sent and received, along with associated chat messages, are permanently deleted when your account is removed.</div>
+        </div>
+      </div>
+    </div>
+
+    <p style="text-align:center;font-size:.82rem;color:#94a3b8;margin-top:1.5rem"><a href="index.html">← Back to IndoProperty</a></p>
+  </div>
+</main>
+
+<footer>
+  <div class="foot-links">
+    <a href="index.html">Home</a>
+    <a href="privacy-policy.html">Privacy Policy</a>
+    <a href="terms.html">Terms of Service</a>
+    <a href="delete-account.html">Delete Account</a>
+    <a href="contact.html">Contact</a>
+  </div>
+  <p class="copy">&copy; <span id="yr"></span> IndoProperty. All rights reserved. &middot; support@indoproperty.in</p>
+</footer>
+
+<script>
+document.getElementById('yr').textContent = new Date().getFullYear();
+
+// ── FAQ accordion ──────────────────────────────────────────────────────
+document.querySelectorAll('.faq-q').forEach(function(btn){
+  btn.addEventListener('click',function(){
+    var ans = btn.nextElementSibling;
+    var open = btn.getAttribute('aria-expanded')==='true';
+    document.querySelectorAll('.faq-q').forEach(function(b){
+      b.setAttribute('aria-expanded','false');
+      if(b.nextElementSibling) b.nextElementSibling.classList.remove('open');
+    });
+    if(!open){ btn.setAttribute('aria-expanded','true'); if(ans) ans.classList.add('open'); }
+  });
+});
+
+// ── Delete Account form ────────────────────────────────────────────────
+// Configuration — change SUPABASE_URL if you ever migrate projects
+var SUPABASE_URL      = 'https://ynbqncqiodnauyujbpux.supabase.co';
+var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InluYnFuY3Fpb2RuYXV5dWpicHV4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA1MjU4MDksImV4cCI6MjEwNjEwMTgwOX0.Ab-7wworQhkkxpIosbuTZzk4M6z_ooH8w-Mc_PVX2ls';
+var EDGE_FUNCTION_URL = SUPABASE_URL + '/functions/v1/delete-account';
+
+var form     = document.getElementById('delete-form');
+var errBox   = document.getElementById('del-error');
+var successEl= document.getElementById('del-success');
+var spinner  = document.getElementById('del-spinner');
+var btnText  = document.getElementById('del-btn-text');
+var submitBtn= document.getElementById('del-submit');
+var confEmail= document.getElementById('confirmed-email');
+
+function showErr(msg){ errBox.textContent=msg; errBox.classList.remove('hidden'); errBox.scrollIntoView({behavior:'smooth',block:'nearest'}); }
+function clearErr(){ errBox.textContent=''; errBox.classList.add('hidden'); }
+function setLoading(on){ submitBtn.disabled=on; btnText.textContent=on?'Processing…':'Delete My Account Permanently'; on?spinner.classList.remove('hidden'):spinner.classList.add('hidden'); }
+
+form.addEventListener('submit', async function(e){
+  e.preventDefault();
+  clearErr();
+  var email    = document.getElementById('del-email').value.trim();
+  var password = document.getElementById('del-password').value;
+  var reason   = document.getElementById('del-reason').value.trim();
+
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ showErr('Please enter a valid email address.'); return; }
+  if(!password){ showErr('Please enter your account password to verify your identity.'); return; }
+
+  setLoading(true);
+  try {
+    // Step 1 — authenticate to get a JWT (anon key is public, safe here)
+    var signInRes = await fetch(SUPABASE_URL+'/auth/v1/token?grant_type=password',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','apikey':SUPABASE_ANON_KEY},
+      body: JSON.stringify({email:email,password:password})
+    });
+    var signInData = await signInRes.json();
+    if(!signInRes.ok || !signInData.access_token){
+      showErr(signInData.error_description || signInData.msg || 'Sign-in failed. Please check your email and password.');
+      setLoading(false); return;
+    }
+
+    // Step 2 — call Edge Function with user JWT (service_role key lives only server-side)
+    var delRes = await fetch(EDGE_FUNCTION_URL,{
+      method:'POST',
+      headers:{'Authorization':'Bearer '+signInData.access_token,'Content-Type':'application/json'},
+      body: JSON.stringify({reason:reason})
+    });
+    var delData = await delRes.json();
+    if(!delRes.ok || !delData.success){
+      showErr(delData.error || 'Account deletion failed (HTTP '+delRes.status+'). Please try again or email support@indoproperty.in');
+      setLoading(false); return;
+    }
+
+    // Success
+    if(confEmail) confEmail.textContent = email;
+    form.classList.add('hidden');
+    successEl.classList.remove('hidden');
+
+  } catch(err){
+    showErr('Network error — could not reach the server. Please check your connection and try again, or email support@indoproperty.in');
+    setLoading(false);
+  }
+});
+</script>
+</body>
+</html>

@@ -144,7 +144,7 @@ CREATE TABLE enquiries (...);
                         ? 'Cloud database is bypassed. All messages, leads, views, and properties work 100% reliably in local state.'
                         : isSupabaseConfigured
                           ? 'Your application is querying your live Supabase PostgreSQL database and Storage.'
-                          : 'SWARAJ is currently running with local state storage so you can instantly preview all Customer, Professional, Reels, and Admin features. Input your Supabase credentials below to connect to live cloud DB.'}
+                          : 'IndoProperty is currently running with local state storage so you can instantly preview all Customer, Professional, Reels, and Admin features. Input your Supabase credentials below to connect to live cloud DB.'}
                     </p>
                   </div>
                 </div>

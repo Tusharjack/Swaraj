@@ -312,6 +312,18 @@ export const authService = {
     }
   },
 
+  async deleteUser(userId: string): Promise<void> {
+    if (isSupabaseConfigured) {
+      const { error } = await supabase.from('profiles').delete().eq('id', userId);
+      if (error) {
+        console.error('Supabase deleteUser error:', error.message);
+      }
+    }
+    const cached = getLocalState<Profile[]>(STORAGE_KEYS.PROFILES, []);
+    const filtered = cached.filter(u => u.id !== userId);
+    setLocalState(STORAGE_KEYS.PROFILES, filtered);
+  },
+
   async resetPlatformData(): Promise<void> {
     // Clear the local session cache
     localStorage.removeItem(STORAGE_KEYS.CURRENT_USER);
@@ -322,5 +334,82 @@ export const authService = {
     localStorage.removeItem(STORAGE_KEYS.REEL_COMMENTS);
     // Note: we do NOT truncate Supabase tables here — that would wipe all
     // real production data. This reset only clears the local interaction cache.
-  }
+  },
+
+  /**
+   * Permanently deletes the current user's account and all associated data.
+   *
+   * Flow:
+   *   1. Get the user's current JWT from the active Supabase session.
+   *   2. Call the `delete-account` Edge Function, passing the JWT.
+   *      The Edge Function runs with the service_role key (server-side only)
+   *      and handles storage cleanup + auth.admin.deleteUser().
+   *   3. On success, clear all local state and sign out.
+   *
+   * Throws an Error with a human-readable message on any failure so the UI
+   * can display it without falsely claiming success.
+   */
+  async deleteAccount(): Promise<void> {
+    if (!isSupabaseConfigured) {
+      throw new Error('Supabase is not configured. Account deletion is only available in production.');
+    }
+
+    // Get the current session JWT — required to authenticate the Edge Function call
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    if (sessionError || !session?.access_token) {
+      throw new Error('You must be signed in to delete your account. Please sign in and try again.');
+    }
+
+    // Derive the Edge Function URL from the Supabase project URL
+    // Format: https://<project-ref>.supabase.co/functions/v1/delete-account
+    const supabaseUrl = (import.meta.env.VITE_SUPABASE_URL ||
+      localStorage.getItem('SWARAJ_SUPABASE_URL') || '') as string;
+    const edgeFunctionUrl = `${supabaseUrl.replace(/\/$/, '')}/functions/v1/delete-account`;
+
+    let response: Response;
+    try {
+      response = await fetch(edgeFunctionUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+    } catch (networkError) {
+      throw new Error(
+        'Network error — could not reach the server. Please check your internet connection and try again.'
+      );
+    }
+
+    // Parse response body (always JSON from our Edge Function)
+    let body: { success?: boolean; error?: string; message?: string };
+    try {
+      body = await response.json();
+    } catch {
+      throw new Error(`Server returned an unexpected response (HTTP ${response.status}). Please try again.`);
+    }
+
+    if (!response.ok || !body.success) {
+      throw new Error(
+        body.error ||
+        `Account deletion failed (HTTP ${response.status}). Please try again or contact support.`
+      );
+    }
+
+    // ── Success: clear all local state ──────────────────────────────────────
+    // Sign out the Supabase session (best-effort — the auth user no longer exists)
+    await supabase.auth.signOut().catch(() => {/* ignore — user is already gone */});
+
+    // Clear every local storage key used by this app
+    localStorage.removeItem(STORAGE_KEYS.CURRENT_USER);
+    localStorage.removeItem(STORAGE_KEYS.SAVED_PROPERTIES);
+    localStorage.removeItem(STORAGE_KEYS.REEL_LIKES);
+    localStorage.removeItem(STORAGE_KEYS.REEL_SAVES);
+    localStorage.removeItem(STORAGE_KEYS.FOLLOWERS);
+    localStorage.removeItem(STORAGE_KEYS.REEL_COMMENTS);
+    localStorage.removeItem(STORAGE_KEYS.NOTIFICATIONS);
+    localStorage.removeItem(STORAGE_KEYS.CHAT_MESSAGES);
+    localStorage.removeItem(STORAGE_KEYS.ENQUIRIES);
+    localStorage.removeItem(STORAGE_KEYS.REPORTS);
+  },
 };

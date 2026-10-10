@@ -2,7 +2,7 @@ import { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
   appId: 'com.swaraj.realestate',
-  appName: 'SWARAJ',
+  appName: 'IndoProperty',
   webDir: 'dist',
   server: {
     androidScheme: 'https'

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Heart, MapPin, Bed, Bath, Maximize2, ShieldCheck, Mail, Share2, Send, CheckCircle2, Flag, MessageCircle } from 'lucide-react';
 import type { Property } from '../types/database';
 import { formatPrice } from './PropertyCard';
+import { ShareModal } from './ShareModal';
 
 interface PropertyDetailModalProps {
   property: Property | null;
@@ -25,22 +26,14 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
   onOpenReport,
 }) => {
   const [activeImageIdx, setActiveImageIdx] = useState(0);
+  const [isShareOpen, setIsShareOpen] = useState(false);
 
   if (!isOpen || !property) return null;
 
   const images = property.media?.map(m => m.url) || ['https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=1200'];
 
   const handleShare = () => {
-    if (navigator.share) {
-      navigator.share({
-        title: property.title,
-        text: `Check out ${property.title} in ${property.location}, ${property.city}`,
-        url: window.location.href,
-      }).catch(() => {});
-    } else {
-      navigator.clipboard.writeText(window.location.href);
-      alert('Property link copied to clipboard!');
-    }
+    setIsShareOpen(true);
   };
 
   return (
@@ -267,6 +260,15 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
           </div>
         </div>
       </div>
+
+      <ShareModal
+        isOpen={isShareOpen}
+        onClose={() => setIsShareOpen(false)}
+        title={property.title}
+        text={`Check out ${property.title} in ${property.location}, ${property.city}`}
+        url={window.location.href}
+        imageUrl={images[0]}
+      />
     </div>
   );
 };

@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Contact &amp; Support — IndoProperty</title>
+<meta name="description" content="Get help, report an issue, or contact the IndoProperty support team."/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{font-size:16px;scroll-behavior:smooth}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;background:#f8fafc;color:#1e293b;line-height:1.6;min-height:100vh;display:flex;flex-direction:column}
+a{color:#4f46e5;text-decoration:none}
+a:hover{text-decoration:underline}
+
+.nav{background:#fff;border-bottom:1px solid #e2e8f0;position:sticky;top:0;z-index:100;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.nav-inner{max-width:900px;margin:0 auto;padding:.875rem 1.25rem;display:flex;align-items:center;justify-content:space-between;gap:1rem}
+.logo{display:flex;align-items:center;gap:.6rem;text-decoration:none}
+.logo-box{width:36px;height:36px;background:#4f46e5;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.logo-box svg{width:20px;height:20px}
+.logo-name{font-size:.95rem;font-weight:800;color:#1e293b;display:block;line-height:1.1}
+.logo-tag{font-size:.62rem;color:#64748b;display:block}
+.nav-links{display:flex;gap:.15rem;flex-wrap:wrap}
+.nav-links a{font-size:.78rem;font-weight:600;color:#64748b;padding:.38rem .6rem;border-radius:8px;white-space:nowrap}
+.nav-links a:hover,.nav-links a.active{background:#ede9fe;color:#4f46e5;text-decoration:none}
+
+main{flex:1;padding:2.5rem 0 4rem}
+.wrap{max-width:900px;margin:0 auto;padding:0 1.25rem}
+
+.hero{text-align:center;padding:2.5rem 1rem 2rem;background:#fff;border-bottom:1px solid #e2e8f0;margin-bottom:2rem}
+.hero-icon{width:60px;height:60px;border-radius:18px;background:#ede9fe;display:flex;align-items:center;justify-content:center;margin:0 auto 1rem}
+.hero-icon svg{width:30px;height:30px}
+.hero h1{font-size:clamp(1.4rem,4vw,2.1rem);font-weight:800;color:#1e293b;letter-spacing:-.02em;margin-bottom:.5rem}
+.hero p{font-size:.95rem;color:#64748b;max-width:480px;margin:0 auto}
+
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;align-items:start}
+@media(max-width:700px){.grid2{grid-template-columns:1fr}}
+
+.card{background:#fff;border:1px solid #e2e8f0;border-radius:18px;padding:1.75rem;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.card h2{font-size:1.05rem;font-weight:700;color:#1e293b;margin-bottom:1rem;display:flex;align-items:center;gap:.45rem}
+
+.cinfo{display:grid;gap:.65rem}
+.crow{display:flex;align-items:flex-start;gap:.75rem;padding:.75rem .9rem;background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;font-size:.88rem}
+.crow .ci{font-size:1.2rem;flex-shrink:0;margin-top:.05rem}
+.crow strong{display:block;font-size:.75rem;text-transform:uppercase;letter-spacing:.04em;color:#475569;margin-bottom:.15rem}
+.crow p{font-size:.78rem;color:#64748b;margin-top:.15rem}
+
+.qlinks{list-style:none;padding:0;display:grid;gap:.45rem}
+.qlinks li a{font-size:.88rem;color:#4f46e5}
+
+.form-group{margin-bottom:.9rem}
+.form-group label{display:block;font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#475569;margin-bottom:.35rem}
+.form-group input,.form-group textarea,.form-group select{width:100%;padding:.65rem .9rem;border:1.5px solid #e2e8f0;border-radius:10px;font-size:.9rem;font-family:inherit;color:#1e293b;background:#fff;transition:border-color .15s,box-shadow .15s;appearance:none}
+.form-group input:focus,.form-group textarea:focus,.form-group select:focus{outline:none;border-color:#4f46e5;box-shadow:0 0 0 3px rgba(79,70,229,.1)}
+.form-group textarea{resize:vertical;min-height:100px}
+.form-group select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right .75rem center;background-size:16px;padding-right:2.5rem}
+
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:.4rem;padding:.7rem 1.5rem;border-radius:10px;font-size:.9rem;font-weight:700;font-family:inherit;cursor:pointer;border:none;width:100%;margin-top:.1rem;transition:background .15s}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn-primary{background:#4f46e5;color:#fff;box-shadow:0 2px 6px rgba(79,70,229,.2)}
+.btn-primary:hover:not(:disabled){background:#3730a3}
+
+.spinner{width:15px;height:15px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite;display:inline-block}
+@keyframes spin{to{transform:rotate(360deg)}}
+.hidden{display:none!important}
+
+.alert-s{background:#f0fdf4;border:1px solid #bbf7d0;color:#166534;border-radius:12px;padding:.8rem 1rem;font-size:.86rem;display:flex;gap:.6rem;margin-bottom:1rem}
+.alert-d{background:#fef2f2;border:1px solid #fecaca;color:#991b1b;border-radius:12px;padding:.8rem 1rem;font-size:.86rem;margin-bottom:.9rem}
+
+footer{background:#fff;border-top:1px solid #e2e8f0;padding:1.75rem 0;margin-top:auto;text-align:center}
+.foot-links{display:flex;flex-wrap:wrap;gap:.25rem .875rem;justify-content:center;margin-bottom:.5rem}
+.foot-links a{font-size:.78rem;color:#64748b}
+.foot-links a:hover{color:#4f46e5}
+.copy{font-size:.73rem;color:#94a3b8}
+
+@media(max-width:600px){.nav-links a{font-size:.72rem;padding:.32rem .45rem}main{padding:1.5rem 0 3rem}.card{padding:1.25rem}}
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-inner">
+    <a href="index.html" class="logo">
+      <div class="logo-box">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 9.5L12 3l9 6.5V21H3V9.5z"/><rect x="9" y="14" width="6" height="7"/>
+        </svg>
+      </div>
+      <div>
+        <span class="logo-name">IndoProperty</span>
+        <span class="logo-tag">Real Estate for a Better Tomorrow</span>
+      </div>
+    </a>
+    <div class="nav-links">
+      <a href="index.html">Home</a>
+      <a href="privacy-policy.html">Privacy</a>
+      <a href="terms.html">Terms</a>
+      <a href="delete-account.html">Delete Account</a>
+      <a href="contact.html" class="active">Contact</a>
+    </div>
+  </div>
+</nav>
+
+<main>
+  <div class="hero">
+    <div class="hero-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#4f46e5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+        <polyline points="22,6 12,13 2,6"/>
+      </svg>
+    </div>
+    <h1>Contact &amp; Support</h1>
+    <p>We're here to help. Reach out with questions, issues, or feedback.</p>
+  </div>
+
+  <div class="wrap">
+    <div class="grid2">
+
+      <!-- Left column -->
+      <div style="display:grid;gap:1.25rem">
+        <div class="card">
+          <h2>📬 Contact Information</h2>
+          <div class="cinfo">
+            <div class="crow">
+              <span class="ci">✉️</span>
+              <div>
+                <strong>Support Email</strong>
+                <a href="mailto:support@indoproperty.in">support@indoproperty.in</a>
+                <p>We typically respond within 1–2 business days.</p>
+              </div>
+            </div>
+            <div class="crow">
+              <span class="ci">🗑️</span>
+              <div>
+                <strong>Account Deletion</strong>
+                <a href="delete-account.html">Request account deletion</a>
+                <p>Or email with subject "Account Deletion Request".</p>
+              </div>
+            </div>
+            <div class="crow">
+              <span class="ci">🔒</span>
+              <div>
+                <strong>Privacy Concerns</strong>
+                <a href="privacy-policy.html">Privacy Policy</a>
+                <p>For data requests: <a href="mailto:support@indoproperty.in?subject=Privacy%20Request">support@indoproperty.in</a></p>
+              </div>
+            </div>
+            <div class="crow">
+              <span class="ci">⏱️</span>
+              <div>
+                <strong>Response Times</strong>
+                <span style="color:#1e293b">General: 1–2 business days</span>
+                <p>Account deletion: within 7 business days.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>❓ Common Topics</h2>
+          <ul class="qlinks">
+            <li><a href="delete-account.html">→ How to delete my account</a></li>
+            <li><a href="privacy-policy.html">→ How my data is used</a></li>
+            <li><a href="terms.html">→ Platform rules &amp; terms</a></li>
+            <li><a href="mailto:support@indoproperty.in?subject=Report%20Content">→ Report inappropriate content</a></li>
+            <li><a href="mailto:support@indoproperty.in?subject=Account%20Issue">→ I can't sign in to my account</a></li>
+            <li><a href="mailto:support@indoproperty.in?subject=Listing%20Issue">→ Issue with a property listing</a></li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Right column: form -->
+      <div class="card">
+        <h2>✉️ Send Us a Message</h2>
+        <p style="color:#475569;font-size:.86rem;margin-bottom:1.1rem">Fill in the form and we'll open your email client with your message pre-filled and ready to send.</p>
+
+        <div id="contact-error" class="alert-d hidden" role="alert"></div>
+
+        <form id="contact-form" novalidate>
+          <div class="form-group">
+            <label for="c-name">Your Name</label>
+            <input type="text" id="c-name" placeholder="Full name" autocomplete="name"/>
+          </div>
+          <div class="form-group">
+            <label for="c-email">Email Address <span style="color:#dc2626">*</span></label>
+            <input type="email" id="c-email" placeholder="you@example.com" required autocomplete="email"/>
+          </div>
+          <div class="form-group">
+            <label for="c-subject">Subject</label>
+            <select id="c-subject">
+              <option value="">— Select a topic —</option>
+              <option>General Enquiry</option>
+              <option>Account Issue</option>
+              <option>Account Deletion Request</option>
+              <option>Property Listing Issue</option>
+              <option>Report Inappropriate Content</option>
+              <option>Privacy / Data Request</option>
+              <option>Technical Bug</option>
+              <option>Other</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="c-message">Message <span style="color:#dc2626">*</span></label>
+            <textarea id="c-message" placeholder="Describe your issue or question in detail..." required></textarea>
+          </div>
+          <button type="submit" id="contact-submit" class="btn btn-primary">
+            <span id="c-spinner" class="spinner hidden"></span>
+            <span id="c-btn-text">Send Message</span>
+          </button>
+          <p style="text-align:center;font-size:.73rem;color:#94a3b8;margin-top:.7rem">
+            Opens your email client. Or email directly: <a href="mailto:support@indoproperty.in">support@indoproperty.in</a>
+          </p>
+        </form>
+
+        <div id="contact-success" class="hidden">
+          <div class="alert-s">
+            ✅&nbsp;<div><strong>Your email client should now be open</strong> with your message pre-filled. Hit Send to complete your request.<br/><br/>If it didn't open, email us directly at <a href="mailto:support@indoproperty.in">support@indoproperty.in</a>.</div>
+          </div>
+          <p style="text-align:center;font-size:.88rem;color:#475569"><a href="index.html">← Back to IndoProperty</a></p>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</main>
+
+<footer>
+  <div class="foot-links">
+    <a href="index.html">Home</a>
+    <a href="privacy-policy.html">Privacy Policy</a>
+    <a href="terms.html">Terms of Service</a>
+    <a href="delete-account.html">Delete Account</a>
+    <a href="contact.html">Contact</a>
+  </div>
+  <p class="copy">&copy; <span id="yr"></span> IndoProperty. All rights reserved. &middot; support@indoproperty.in</p>
+</footer>
+
+<script>
+document.getElementById('yr').textContent = new Date().getFullYear();
+
+var form      = document.getElementById('contact-form');
+var errBox    = document.getElementById('contact-error');
+var successEl = document.getElementById('contact-success');
+var spinner   = document.getElementById('c-spinner');
+var btnText   = document.getElementById('c-btn-text');
+var submitBtn = document.getElementById('contact-submit');
+
+form.addEventListener('submit', function(e){
+  e.preventDefault();
+  errBox.classList.add('hidden');
+
+  var email   = (document.getElementById('c-email').value   || '').trim();
+  var name    = (document.getElementById('c-name').value    || '').trim();
+  var subject = (document.getElementById('c-subject').value || '').trim();
+  var message = (document.getElementById('c-message').value || '').trim();
+
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){
+    errBox.textContent = 'Please enter a valid email address.';
+    errBox.classList.remove('hidden'); return;
+  }
+  if(!message){ errBox.textContent = 'Please enter your message.'; errBox.classList.remove('hidden'); return; }
+
+  submitBtn.disabled = true;
+  btnText.textContent = 'Opening email…';
+  spinner.classList.remove('hidden');
+
+  var mailSubject = encodeURIComponent('[IndoProperty Support] ' + (subject || 'General Enquiry'));
+  var mailBody    = encodeURIComponent('Name: '+name+'\nEmail: '+email+'\nSubject: '+subject+'\n\nMessage:\n'+message);
+  window.location.href = 'mailto:support@indoproperty.in?subject='+mailSubject+'&body='+mailBody;
+
+  setTimeout(function(){
+    form.classList.add('hidden');
+    successEl.classList.remove('hidden');
+  }, 900);
+});
+</script>
+</body>
+</html>

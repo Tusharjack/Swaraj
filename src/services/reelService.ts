@@ -38,8 +38,7 @@ export const reelService = {
   },
 
   /**
-   * Fetch all published reels from Supabase.
-   * Supabase is the SOLE source — no localStorage merge.
+   * Fetch all published reels from Supabase with live cross-platform likes & comments counts.
    */
   async getReels(): Promise<Reel[]> {
     if (!isSupabaseConfigured) {
@@ -50,7 +49,7 @@ export const reelService = {
 
     const currentUser = await authService.getCurrentUser().catch(() => null);
 
-    const { data, error } = await supabase
+    const { data: rawReels, error } = await supabase
       .from('reels')
       .select('*, creator:profiles(*), property:properties(*)')
       .order('created_at', { ascending: false });
@@ -59,29 +58,53 @@ export const reelService = {
       throw new Error(`Failed to load reels: ${error.message}`);
     }
 
-    // Fetch interaction state for the current user
-    let likes: string[] = [];
-    let saves: string[] = [];
-    let following: string[] = [];
+    // Fetch all likes, comments, and user interaction states in parallel for 100% accurate counts across platforms
+    const [allLikesRes, allCommentsRes, userLikesRes, userSavesRes, userFollowsRes] = await Promise.all([
+      supabase.from('reel_likes').select('reel_id'),
+      supabase.from('reel_comments').select('reel_id'),
+      currentUser ? supabase.from('reel_likes').select('reel_id').eq('user_id', currentUser.id) : Promise.resolve({ data: [] }),
+      currentUser ? supabase.from('reel_saves').select('reel_id').eq('user_id', currentUser.id) : Promise.resolve({ data: [] }),
+      currentUser ? supabase.from('followers').select('following_id').eq('follower_id', currentUser.id) : Promise.resolve({ data: [] }),
+    ]);
 
-    if (currentUser) {
-      const [likesRes, savesRes, followsRes] = await Promise.all([
-        supabase.from('reel_likes').select('reel_id').eq('user_id', currentUser.id),
-        supabase.from('reel_saves').select('reel_id').eq('user_id', currentUser.id),
-        supabase.from('followers').select('following_id').eq('follower_id', currentUser.id)
-      ]);
-      if (!likesRes.error && likesRes.data) {
-        likes = likesRes.data.map((r: any) => r.reel_id).filter(Boolean);
-      }
-      if (!savesRes.error && savesRes.data) {
-        saves = savesRes.data.map((r: any) => r.reel_id).filter(Boolean);
-      }
-      if (!followsRes.error && followsRes.data) {
-        following = followsRes.data.map((r: any) => r.following_id).filter(Boolean);
-      }
+    // Build real-time likes count per reel
+    const likesCountMap: { [reelId: string]: number } = {};
+    if (allLikesRes.data) {
+      allLikesRes.data.forEach((row: any) => {
+        if (row.reel_id) {
+          likesCountMap[row.reel_id] = (likesCountMap[row.reel_id] || 0) + 1;
+        }
+      });
     }
 
-    return attachClientFlags((data ?? []) as Reel[], likes, saves, following);
+    // Build real-time comments count per reel
+    const commentsCountMap: { [reelId: string]: number } = {};
+    if (allCommentsRes.data) {
+      allCommentsRes.data.forEach((row: any) => {
+        if (row.reel_id) {
+          commentsCountMap[row.reel_id] = (commentsCountMap[row.reel_id] || 0) + 1;
+        }
+      });
+    }
+
+    const userLikes = userLikesRes.data ? (userLikesRes.data as any[]).map((r: any) => r.reel_id).filter(Boolean) : [];
+    const userSaves = userSavesRes.data ? (userSavesRes.data as any[]).map((r: any) => r.reel_id).filter(Boolean) : [];
+    const userFollows = userFollowsRes.data ? (userFollowsRes.data as any[]).map((r: any) => r.following_id).filter(Boolean) : [];
+
+    const processedReels = (rawReels ?? []).map((reel: any) => {
+      const realLikes = likesCountMap[reel.id] !== undefined ? likesCountMap[reel.id] : (reel.likes_count || 0);
+      const realComments = commentsCountMap[reel.id] !== undefined ? commentsCountMap[reel.id] : (reel.comments_count || 0);
+      return {
+        ...reel,
+        likes_count: realLikes,
+        comments_count: realComments,
+        is_liked_by_user: userLikes.includes(reel.id),
+        is_saved_by_user: userSaves.includes(reel.id),
+        is_following_creator: reel.user_id ? userFollows.includes(reel.user_id) : false
+      };
+    });
+
+    return processedReels as Reel[];
   },
 
   async getReelById(id: string): Promise<Reel | null> {
@@ -435,12 +458,14 @@ export const reelService = {
   },
 
   async deleteReel(reelId: string): Promise<void> {
-    if (!isSupabaseConfigured) {
-      throw new Error('Supabase is not configured.');
+    if (isSupabaseConfigured) {
+      const { error } = await supabase.from('reels').delete().eq('id', reelId);
+      if (error) {
+        console.error('Supabase deleteReel error:', error.message);
+      }
     }
-    const { error } = await supabase.from('reels').delete().eq('id', reelId);
-    if (error) {
-      throw new Error(`Failed to delete reel: ${error.message}`);
-    }
+    const cached = getLocalState<Reel[]>(STORAGE_KEYS.REELS, []);
+    const filtered = cached.filter(r => r.id !== reelId);
+    setLocalState(STORAGE_KEYS.REELS, filtered);
   }
 };

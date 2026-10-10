@@ -1,5 +1,5 @@
 import React from 'react';
-import { Building2, Film, Heart, User, Shield, MessageCircle } from 'lucide-react';
+import { Building2, Heart, User, Shield, MessageCircle } from 'lucide-react';
 import type { Profile } from '../types/database';
 
 interface BottomNavProps {
@@ -8,6 +8,26 @@ interface BottomNavProps {
   currentUser: Profile | null;
   savedCount: number;
 }
+
+// Instagram Clapperboard Reel Icon
+const InstagramReelsIcon: React.FC<{ active: boolean }> = ({ active }) => (
+  <svg
+    className={`w-5 h-5 transition-transform duration-200 ${active ? 'scale-110' : ''}`}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth={active ? "2.5" : "2"}
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <rect x="2" y="2" width="20" height="20" rx="5" ry="5" />
+    <path d="M2 9.5h20" />
+    <path d="M2 14.5h20" />
+    <path d="M7 2v20" />
+    <path d="M17 2v20" />
+    <polygon points="10,10 15,12 10,14" fill="currentColor" />
+  </svg>
+);
 
 export const BottomNav: React.FC<BottomNavProps> = ({
   currentTab,
@@ -27,14 +47,17 @@ export const BottomNav: React.FC<BottomNavProps> = ({
         <span>Properties</span>
       </button>
 
+      {/* INSTAGRAM REELS TAB */}
       <button
         onClick={() => onTabChange('reels')}
         className={`flex flex-col items-center gap-1 transition relative ${
           currentTab === 'reels' ? 'text-purple-600 font-extrabold scale-105' : 'hover:text-slate-900'
         }`}
       >
-        <div className="p-1 bg-gradient-to-tr from-indigo-600 to-purple-600 text-white rounded-xl shadow-sm">
-          <Film className="w-4 h-4" />
+        <div className={`p-1 rounded-xl transition ${
+          currentTab === 'reels' ? 'bg-gradient-to-tr from-amber-500 via-rose-500 to-purple-600 text-white shadow-md' : 'text-slate-600 hover:text-slate-900'
+        }`}>
+          <InstagramReelsIcon active={currentTab === 'reels'} />
         </div>
         <span>Reels</span>
       </button>
@@ -66,7 +89,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
         <span>Saved</span>
       </button>
 
-      {currentUser?.role === 'professional' && (
+      {currentUser && (
         <button
           onClick={() => onTabChange('professional')}
           className={`flex flex-col items-center gap-1 transition ${
@@ -74,7 +97,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
           }`}
         >
           <User className="w-5 h-5" />
-          <span>Pro Portal</span>
+          <span>Dashboard</span>
         </button>
       )}
 

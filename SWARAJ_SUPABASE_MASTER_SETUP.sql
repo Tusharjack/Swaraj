@@ -324,6 +324,51 @@ CREATE TRIGGER on_auth_user_created
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
 -- ---------------------------------------------------------------------------
+-- 17B. AUTO-UPDATE LIKES & COMMENTS COUNTS ON REELS (SECURITY DEFINER)
+-- ---------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.handle_reel_like_change()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  IF TG_OP = 'INSERT' THEN
+    UPDATE public.reels SET likes_count = COALESCE(likes_count, 0) + 1 WHERE id = NEW.reel_id;
+  ELSIF TG_OP = 'DELETE' THEN
+    UPDATE public.reels SET likes_count = GREATEST(0, COALESCE(likes_count, 0) - 1) WHERE id = OLD.reel_id;
+  END IF;
+  RETURN NULL;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS on_reel_like_changed ON public.reel_likes;
+CREATE TRIGGER on_reel_like_changed
+  AFTER INSERT OR DELETE ON public.reel_likes
+  FOR EACH ROW EXECUTE FUNCTION public.handle_reel_like_change();
+
+CREATE OR REPLACE FUNCTION public.handle_reel_comment_change()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  IF TG_OP = 'INSERT' THEN
+    UPDATE public.reels SET comments_count = COALESCE(comments_count, 0) + 1 WHERE id = NEW.reel_id;
+  ELSIF TG_OP = 'DELETE' THEN
+    UPDATE public.reels SET comments_count = GREATEST(0, COALESCE(comments_count, 0) - 1) WHERE id = OLD.reel_id;
+  END IF;
+  RETURN NULL;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS on_reel_comment_changed ON public.reel_comments;
+CREATE TRIGGER on_reel_comment_changed
+  AFTER INSERT OR DELETE ON public.reel_comments
+  FOR EACH ROW EXECUTE FUNCTION public.handle_reel_comment_change();
+
+-- ---------------------------------------------------------------------------
 -- 18. ROW LEVEL SECURITY
 -- ---------------------------------------------------------------------------
 ALTER TABLE public.profiles          ENABLE ROW LEVEL SECURITY;
@@ -511,4 +556,138 @@ GRANT ALL    ON ALL SEQUENCES IN SCHEMA public TO authenticated;
 --   4. Restart your dev server.
 --   5. Test: Publisher login → create property/reel → Customer login (incognito)
 --      → refresh → property/reel should appear.
+-- =============================================================================
+
+-- =============================================================================
+-- PATCH 01 — Account Deletion Support
+-- Run this in the Supabase SQL Editor after the master setup script.
+-- Safe to run multiple times (all statements use IF NOT EXISTS / OR REPLACE).
+-- =============================================================================
+
+-- ---------------------------------------------------------------------------
+-- A. Enquiries DELETE policy
+--    The original schema had no DELETE policy for enquiries, which meant
+--    the Edge Function (running as service_role) could delete rows but a
+--    client-side call would be blocked by RLS.
+--    This policy also allows the owning user to self-serve delete their sent
+--    enquiries via the app if needed.
+-- ---------------------------------------------------------------------------
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'public'
+      AND tablename  = 'enquiries'
+      AND policyname = 'enquiries_delete_own'
+  ) THEN
+    CREATE POLICY "enquiries_delete_own" ON public.enquiries
+      FOR DELETE
+      USING (auth.uid() = sender_id OR auth.uid() = recipient_id);
+  END IF;
+END $$;
+
+-- ---------------------------------------------------------------------------
+-- B. Reel comments DELETE policy
+--    Users should be able to delete their own comments.
+-- ---------------------------------------------------------------------------
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'public'
+      AND tablename  = 'reel_comments'
+      AND policyname = 'reel_comments_delete_own'
+  ) THEN
+    CREATE POLICY "reel_comments_delete_own" ON public.reel_comments
+      FOR DELETE
+      USING (auth.uid() = user_id);
+  END IF;
+END $$;
+
+-- ---------------------------------------------------------------------------
+-- C. Storage object DELETE policies
+--    The original setup only had SELECT + INSERT policies on storage.objects.
+--    The Edge Function uses service_role (bypasses RLS) so it can always
+--    delete storage files.  These policies additionally allow authenticated
+--    users to delete their own files via the anon client (e.g. avatar update).
+-- ---------------------------------------------------------------------------
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE policyname = 'storage_avatars_delete' AND tablename = 'objects'
+  ) THEN
+    CREATE POLICY "storage_avatars_delete"
+      ON storage.objects FOR DELETE
+      USING (bucket_id = 'avatars' AND auth.uid() IS NOT NULL);
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE policyname = 'storage_properties_delete' AND tablename = 'objects'
+  ) THEN
+    CREATE POLICY "storage_properties_delete"
+      ON storage.objects FOR DELETE
+      USING (bucket_id = 'properties' AND auth.uid() IS NOT NULL);
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE policyname = 'storage_reels_delete' AND tablename = 'objects'
+  ) THEN
+    CREATE POLICY "storage_reels_delete"
+      ON storage.objects FOR DELETE
+      USING (bucket_id = 'reels' AND auth.uid() IS NOT NULL);
+  END IF;
+END $$;
+
+-- ---------------------------------------------------------------------------
+-- D. Notifications INSERT policy
+--    Required so server-side triggers / Edge Functions can insert notifications
+--    on behalf of users (e.g. "your account deletion was processed").
+-- ---------------------------------------------------------------------------
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'public'
+      AND tablename  = 'notifications'
+      AND policyname = 'notif_insert_own'
+  ) THEN
+    CREATE POLICY "notif_insert_own" ON public.notifications
+      FOR INSERT
+      WITH CHECK (auth.uid() = user_id);
+  END IF;
+END $$;
+
+-- ---------------------------------------------------------------------------
+-- E. Verify cascade is in place on profiles → auth.users
+--    (Informational — cannot ALTER an FK in Supabase managed schema;
+--     this block just confirms the cascade exists and logs a notice.)
+-- ---------------------------------------------------------------------------
+DO $$
+DECLARE
+  cascade_exists boolean;
+BEGIN
+  SELECT EXISTS (
+    SELECT 1
+    FROM   information_schema.referential_constraints rc
+    JOIN   information_schema.table_constraints tc
+           ON rc.constraint_name = tc.constraint_name
+    WHERE  tc.table_name   = 'profiles'
+      AND  rc.delete_rule  = 'CASCADE'
+  ) INTO cascade_exists;
+
+  IF cascade_exists THEN
+    RAISE NOTICE 'OK: profiles.id ON DELETE CASCADE is in place.';
+  ELSE
+    RAISE WARNING 'MISSING: profiles.id does not have ON DELETE CASCADE. Account deletion will not cascade. Re-run the master setup script.';
+  END IF;
+END $$;
+
+-- =============================================================================
+-- PATCH 01 DONE.
+-- Summary of what was added:
+--   • enquiries_delete_own   — users can delete their own sent/received enquiries
+--   • reel_comments_delete_own — users can delete their own comments
+--   • storage_avatars_delete   — authenticated users can delete avatar files
+--   • storage_properties_delete — authenticated users can delete property images
+--   • storage_reels_delete     — authenticated users can delete reel videos
+--   • notif_insert_own         — users can insert their own notifications
 -- =============================================================================

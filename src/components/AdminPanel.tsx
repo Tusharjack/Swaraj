@@ -51,17 +51,42 @@ export const AdminPanel: React.FC = () => {
     loadAdminData();
   };
 
+  const handleDeleteUser = async (userId: string, userName: string) => {
+    if (confirm(`Admin Action: Delete user account "${userName}" permanently?`)) {
+      try {
+        setUsers(prev => prev.filter(u => u.id !== userId));
+        await api.deleteUser(userId);
+        loadAdminData();
+      } catch (err: any) {
+        console.error('Delete user error:', err);
+        loadAdminData();
+      }
+    }
+  };
+
   const handleDeleteProperty = async (propId: string) => {
     if (confirm('Admin Action: Delete this property listing permanently?')) {
-      await api.deleteProperty(propId);
-      loadAdminData();
+      try {
+        setProperties(prev => prev.filter(p => p.id !== propId));
+        await api.deleteProperty(propId);
+        loadAdminData();
+      } catch (err: any) {
+        console.error('Delete property error:', err);
+        loadAdminData();
+      }
     }
   };
 
   const handleDeleteReel = async (reelId: string) => {
     if (confirm('Admin Action: Delete this video reel permanently?')) {
-      await api.deleteReel(reelId);
-      loadAdminData();
+      try {
+        setReels(prev => prev.filter(r => r.id !== reelId));
+        await api.deleteReel(reelId);
+        loadAdminData();
+      } catch (err: any) {
+        console.error('Delete reel error:', err);
+        loadAdminData();
+      }
     }
   };
 
@@ -80,8 +105,14 @@ export const AdminPanel: React.FC = () => {
 
   const handleDeleteEnquiry = async (enquiryId: string) => {
     if (confirm('Admin Action: Delete this enquiry permanently?')) {
-      await api.deleteEnquiry(enquiryId);
-      loadAdminData();
+      try {
+        setEnquiries(prev => prev.filter(e => e.id !== enquiryId));
+        await api.deleteEnquiry(enquiryId);
+        loadAdminData();
+      } catch (err: any) {
+        console.error('Delete enquiry error:', err);
+        loadAdminData();
+      }
     }
   };
 
@@ -103,7 +134,7 @@ export const AdminPanel: React.FC = () => {
             <ShieldAlert className="w-6 h-6" />
           </div>
           <div>
-            <h2 className="text-xl font-bold">SWARAJ Platform Governance & Admin Moderation</h2>
+            <h2 className="text-xl font-bold">IndoProperty Platform Governance & Admin Moderation</h2>
             <p className="text-xs text-purple-200 mt-0.5">
               System Admin Console • Live platform data for Users, Properties, Reels & Reports
             </p>
@@ -319,7 +350,7 @@ export const AdminPanel: React.FC = () => {
               <div className="p-4 bg-purple-50 border border-purple-200 rounded-2xl flex items-center justify-between">
                 <div>
                   <h4 className="font-bold text-sm text-purple-950">Default Platform Accounts & Credentials</h4>
-                  <p className="text-xs text-purple-700">Pre-seeded login accounts for testing every user persona on SWARAJ.</p>
+                  <p className="text-xs text-purple-700">Pre-seeded login accounts for testing every user persona on IndoProperty.</p>
                 </div>
                 <button
                   onClick={handleResetPlatformData}
@@ -411,7 +442,7 @@ export const AdminPanel: React.FC = () => {
                         </span>
                       </td>
                       <td className="p-3 font-medium">{u.city || '—'}</td>
-                      <td className="p-3 text-right">
+                      <td className="p-3 text-right flex items-center justify-end gap-2">
                         <button
                           onClick={() => handleToggleVerification(u.id)}
                           className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
@@ -420,7 +451,14 @@ export const AdminPanel: React.FC = () => {
                               : 'bg-emerald-600 text-white hover:bg-emerald-700'
                           }`}
                         >
-                          {u.verified ? 'Revoke Badge' : 'Grant Verified Badge'}
+                          {u.verified ? 'Revoke Badge' : 'Grant Badge'}
+                        </button>
+                        <button
+                          onClick={() => handleDeleteUser(u.id, u.full_name || u.email)}
+                          className="p-1.5 bg-rose-50 text-rose-600 hover:bg-rose-100 rounded-lg transition cursor-pointer"
+                          title="Delete User Account"
+                        >
+                          <Trash2 className="w-4 h-4" />
                         </button>
                       </td>
                     </tr>

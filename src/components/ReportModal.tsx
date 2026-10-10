@@ -104,7 +104,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({
               <div>
                 <h4 className="font-bold text-slate-900 text-lg">Report Submitted</h4>
                 <p className="text-xs text-slate-500 mt-1 px-4">
-                  Thank you for helping keep SWARAJ safe. Our admin team has been notified and will review this report shortly.
+                  Thank you for helping keep IndoProperty safe. Our admin team has been notified and will review this report shortly.
                   <br />
                   <span className="font-semibold text-rose-600 block mt-1">
                     No content is auto-removed — we review every report before taking action.
