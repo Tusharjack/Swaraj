@@ -14,8 +14,8 @@
    embedded in the built React app. The service_role key is NEVER used here.
    ─────────────────────────────────────────────────────────────────────────── */
 const CONFIG = {
-  SUPABASE_URL:      'https://ynbqncqiodnauyujbpux.supabase.co',
-  SUPABASE_ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InluYnFuY3Fpb2RuYXV5dWpicHV4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA1MjU4MDksImV4cCI6MjEwNjEwMTgwOX0.Ab-7wworQhkkxpIosbuTZzk4M6z_ooH8w-Mc_PVX2ls',
+  SUPABASE_URL:      'https://mcahrqukjathkymymsve.supabase.co',
+  SUPABASE_ANON_KEY: 'sb_publishable_VhnhIc84pTU7M2nNGLlomQ_IONTP7Q-',
   // Edge Function URL — built from SUPABASE_URL + function name
   get EDGE_FUNCTION_URL() {
     return this.SUPABASE_URL + '/functions/v1/delete-account';

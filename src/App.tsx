@@ -324,7 +324,7 @@ export function App() {
               </button>
             </div>
           ) : (
-            <div className="w-full h-[calc(100vh-3.5rem)] md:h-[calc(100vh-4.5rem)] flex items-center justify-center">
+            <div className="w-full flex items-center justify-center">
               <ReelsFeed
                 reels={reels}
                 onOpenProperty={handleSelectProperty}

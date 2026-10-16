@@ -156,7 +156,10 @@ export const ProfessionalDashboard: React.FC<ProfessionalDashboardProps> = ({
 
       {/* Analytics Cards Row */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm space-y-1">
+        <button
+          onClick={() => setActiveTab('properties')}
+          className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm space-y-1 text-left hover:border-indigo-400 hover:shadow-md transition cursor-pointer"
+        >
           <div className="flex items-center justify-between text-slate-400">
             <span className="text-xs font-semibold uppercase">Active Listings</span>
             <Building2 className="w-4 h-4 text-indigo-600" />
@@ -167,11 +170,14 @@ export const ProfessionalDashboard: React.FC<ProfessionalDashboardProps> = ({
             <div className="text-2xl font-black text-slate-900">{properties.length}</div>
           )}
           <p className="text-[11px] text-emerald-600 font-semibold flex items-center gap-1">
-            <TrendingUp className="w-3 h-3" /> Live on discovery
+            <TrendingUp className="w-3 h-3" /> Tap to manage
           </p>
-        </div>
+        </button>
 
-        <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm space-y-1">
+        <button
+          onClick={() => setActiveTab('leads')}
+          className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm space-y-1 text-left hover:border-purple-400 hover:shadow-md transition cursor-pointer"
+        >
           <div className="flex items-center justify-between text-slate-400">
             <span className="text-xs font-semibold uppercase">Leads Received</span>
             <Mail className="w-4 h-4 text-purple-600" />
@@ -182,11 +188,14 @@ export const ProfessionalDashboard: React.FC<ProfessionalDashboardProps> = ({
             <div className="text-2xl font-black text-slate-900">{enquiries.length}</div>
           )}
           <p className="text-[11px] text-slate-500 font-medium">
-            {isLoading ? '...' : `${enquiries.filter(e => e.status === 'new').length} new unread`}
+            {isLoading ? '...' : `${enquiries.filter(e => e.status === 'new').length} new · Tap to view`}
           </p>
-        </div>
+        </button>
 
-        <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm space-y-1">
+        <button
+          onClick={() => setActiveTab('properties')}
+          className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm space-y-1 text-left hover:border-blue-400 hover:shadow-md transition cursor-pointer"
+        >
           <div className="flex items-center justify-between text-slate-400">
             <span className="text-xs font-semibold uppercase">Total Views</span>
             <Eye className="w-4 h-4 text-blue-600" />
@@ -197,9 +206,12 @@ export const ProfessionalDashboard: React.FC<ProfessionalDashboardProps> = ({
             <div className="text-2xl font-black text-slate-900">{totalViews}</div>
           )}
           <p className="text-[11px] text-slate-500 font-medium">Across all properties</p>
-        </div>
+        </button>
 
-        <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm space-y-1">
+        <button
+          onClick={() => setActiveTab('reels')}
+          className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm space-y-1 text-left hover:border-rose-400 hover:shadow-md transition cursor-pointer"
+        >
           <div className="flex items-center justify-between text-slate-400">
             <span className="text-xs font-semibold uppercase">Published Reels</span>
             <Film className="w-4 h-4 text-rose-600" />
@@ -209,8 +221,8 @@ export const ProfessionalDashboard: React.FC<ProfessionalDashboardProps> = ({
           ) : (
             <div className="text-2xl font-black text-slate-900">{reels.length}</div>
           )}
-          <p className="text-[11px] text-slate-500 font-medium">Short video feed</p>
-        </div>
+          <p className="text-[11px] text-slate-500 font-medium">Tap to manage reels</p>
+        </button>
       </div>
 
       {/* Main Content Tabs */}

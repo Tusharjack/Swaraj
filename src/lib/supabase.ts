@@ -11,9 +11,10 @@ const SUPABASE_ANON_KEY =
   localStorage.getItem('SWARAJ_SUPABASE_KEY') ||
   '';
 
-/** A real Supabase anon key is a JWT: it always starts with "eyJ". */
-const isRealJwt = (k: string) =>
-  typeof k === 'string' && k.startsWith('eyJ') && k.length > 100;
+/** Accept both classic JWT anon keys (eyJ...) and new publishable keys (sb_publishable_...) */
+const isValidKey = (k: string) =>
+  typeof k === 'string' && k.length > 20 &&
+  (k.startsWith('eyJ') || k.startsWith('sb_publishable_') || k.startsWith('sb_'));
 
 const disabledByLocalStorage =
   typeof window !== 'undefined' &&
@@ -25,7 +26,7 @@ export const isSupabaseConfigured: boolean = Boolean(
   SUPABASE_URL &&
   SUPABASE_URL !== 'YOUR_SUPABASE_URL' &&
   !SUPABASE_URL.includes('example.supabase.co') &&
-  isRealJwt(SUPABASE_ANON_KEY)
+  isValidKey(SUPABASE_ANON_KEY)
 );
 
 if (!isSupabaseConfigured) {
