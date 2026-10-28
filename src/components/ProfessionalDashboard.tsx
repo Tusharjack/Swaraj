@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Building2, Plus, Film, Mail, Eye, TrendingUp, ShieldCheck, Trash2, MessageCircle } from 'lucide-react';
+import { Building2, Plus, Film, Mail, Eye, TrendingUp, ShieldCheck, Trash2, MessageCircle, Coins, Star } from 'lucide-react';
 import type { Profile, Property, Enquiry, Reel } from '../types/database';
 import { api, idsEqual } from '../services/api';
 import { formatPrice } from './PropertyCard';
@@ -100,6 +100,28 @@ export const ProfessionalDashboard: React.FC<ProfessionalDashboardProps> = ({
     if (confirm('Are you sure you want to delete this property listing?')) {
       await api.deleteProperty(propertyId);
       loadFullDashboard();
+    }
+  };
+
+  const [promotingId, setPromotingId] = useState<string | null>(null);
+  const [promoteMsg, setPromoteMsg] = useState<{ id: string; success: boolean; msg: string } | null>(null);
+
+  const handlePromoteProperty = async (prop: Property, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (prop.featured) return;
+    if (!confirm(`Promote "${prop.title}" for 50 platform credit tokens? This marks your listing as FEATURED, boosts visibility to buyers, and highlights it across IndoProperty.`)) {
+      return;
+    }
+    setPromotingId(prop.id);
+    try {
+      await api.spendTokensForPromotion(prop.id, 50);
+      setProperties(prev => prev.map(p => p.id === prop.id ? { ...p, featured: true } : p));
+      setPromoteMsg({ id: prop.id, success: true, msg: '🎉 Promoted to Featured! Listing boosted.' });
+      setTimeout(() => setPromoteMsg(null), 4000);
+    } catch (err: any) {
+      alert(err.message || 'Promotion failed. Make sure you have at least 50 tokens.');
+    } finally {
+      setPromotingId(null);
     }
   };
 
@@ -382,22 +404,48 @@ export const ProfessionalDashboard: React.FC<ProfessionalDashboardProps> = ({
                           className="w-16 h-16 rounded-xl object-cover border"
                         />
                         <div>
-                          <h4 className="font-bold text-sm text-slate-900 line-clamp-1">{prop.title}</h4>
+                          <div className="flex items-center gap-1.5">
+                            <h4 className="font-bold text-sm text-slate-900 line-clamp-1">{prop.title}</h4>
+                            {prop.featured && (
+                              <span className="px-1.5 py-0.5 bg-amber-500 text-white text-[9px] font-black uppercase rounded tracking-wider shrink-0 flex items-center gap-0.5">
+                                <Star className="w-2.5 h-2.5 fill-white" /> Featured
+                              </span>
+                            )}
+                          </div>
                           <p className="text-xs font-extrabold text-indigo-600">
                             {formatPrice(prop.price, prop.listing_type)}
                           </p>
                           <p className="text-[11px] text-slate-400">{prop.location}, {prop.city}</p>
+                          {promoteMsg?.id === prop.id && (
+                            <p className="text-[10px] font-bold text-emerald-600 mt-1">{promoteMsg.msg}</p>
+                          )}
                         </div>
                       </div>
 
                       <div className="flex items-center gap-2 shrink-0">
+                        {!prop.featured ? (
+                          <button
+                            onClick={(e) => handlePromoteProperty(prop, e)}
+                            disabled={promotingId === prop.id}
+                            title="Boost listing using 50 platform tokens"
+                            className="px-2.5 py-1.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white text-[10px] font-black rounded-xl shadow-sm transition flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                          >
+                            <Coins className="w-3 h-3 text-amber-100" />
+                            {promotingId === prop.id ? 'Promoting…' : 'Promote (50)'}
+                          </button>
+                        ) : (
+                          <span className="px-2 py-1 bg-amber-50 border border-amber-200 text-amber-700 text-[10px] font-bold rounded-lg flex items-center gap-1">
+                            <Star className="w-3 h-3 fill-amber-500 text-amber-500" /> Boosted
+                          </span>
+                        )}
+
                         <span className="px-2.5 py-1 bg-emerald-50 text-emerald-700 text-[10px] font-bold rounded-lg uppercase">
                           {prop.status}
                         </span>
                         <button
                           onClick={(e) => handleDeleteProperty(prop.id, e)}
                           title="Delete Property"
-                          className="p-2 bg-rose-50 text-rose-600 hover:bg-rose-100 rounded-xl transition"
+                          className="p-2 bg-rose-50 text-rose-600 hover:bg-rose-100 rounded-xl transition cursor-pointer"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>

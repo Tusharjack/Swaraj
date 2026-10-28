@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { LogIn, UserPlus, Shield, Sparkles, Lock, Eye, EyeOff, AlertCircle, Key, ArrowLeft, CheckCircle2 } from 'lucide-react';
+import { LogIn, UserPlus, Shield, Sparkles, Lock, Eye, EyeOff, AlertCircle, Key, ArrowLeft, CheckCircle2, Gift } from 'lucide-react';
 import { api } from '../services/api';
 import type { Profile, UserRole, ProfessionalType } from '../types/database';
 
@@ -29,9 +29,20 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [agencyName, setAgencyName] = useState('');
   const [city, setCity] = useState('Mumbai');
   const [securityPin, setSecurityPin] = useState('');
+  const [referralCode, setReferralCode] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const [loading, setLoading] = useState(false);
   const [needsEmailConfirmation, setNeedsEmailConfirmation] = useState(false);
+
+  useEffect(() => {
+    // Check for referral code in URL query params (?ref=IP-XXXXXX)
+    const params = new URLSearchParams(window.location.search);
+    const ref = params.get('ref') || params.get('referral');
+    if (ref) {
+      setReferralCode(ref.toUpperCase());
+      setMode('signup');
+    }
+  }, []);
 
   useEffect(() => {
     if (initialRole === 'admin') {
@@ -94,6 +105,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         }
         if (result.error) setErrorMsg(result.error);
         else if (result.profile) {
+          // If a referral code was provided, apply it for bonus tokens
+          if (referralCode.trim()) {
+            try {
+              await api.applyReferralCode(referralCode.trim());
+            } catch (refErr) {
+              console.warn('Referral award notice:', refErr);
+            }
+          }
           onAuthSuccess(result.profile);
           onClose();
         }
@@ -404,6 +423,31 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                         className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
                       />
                     </div>
+                  </div>
+                )}
+
+                {mode === 'signup' && !isAdminMode && (
+                  <div className="p-3 bg-gradient-to-r from-indigo-50 to-purple-50 rounded-2xl border border-indigo-100">
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="text-xs font-bold text-indigo-950 flex items-center gap-1.5">
+                        <Gift className="w-3.5 h-3.5 text-indigo-600" /> Have a Referral Code?
+                      </label>
+                      <span className="text-[10px] font-extrabold text-emerald-600 bg-emerald-100/80 px-2 py-0.5 rounded-full">
+                        +25 Welcome Tokens
+                      </span>
+                    </div>
+                    <input
+                      type="text"
+                      value={referralCode}
+                      onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
+                      placeholder="e.g. IP-A8F29C (Optional)"
+                      className="w-full px-3.5 py-2 rounded-xl bg-white border border-indigo-200 text-xs font-mono font-bold tracking-wider uppercase text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                    {referralCode && (
+                      <p className="text-[10px] text-indigo-700 font-medium mt-1">
+                        🎁 Code recognized! You'll receive 25 welcome tokens automatically upon registration.
+                      </p>
+                    )}
                   </div>
                 )}
 

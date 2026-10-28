@@ -4,6 +4,9 @@ import { reelService } from './reelService';
 import { enquiryService } from './enquiryService';
 import { chatService } from './chatService';
 import { reportService } from './reportService';
+import { tokenService } from './tokenService';
+import { loanService } from './loanService';
+import { referralService } from './referralService';
 import { getValidUuid, idsEqual, getLastError, setLastError } from './storage';
 import { SEED_PROFILES, SEED_PROPERTIES, SEED_REELS } from './seedData';
 
@@ -78,7 +81,29 @@ export const api = {
 
   // Diagnostics & Errors
   getLastApiError: getLastError,
-  setLastApiError: setLastError
+  setLastApiError: setLastError,
+
+  // ── Token System ─────────────────────────────────────────────────────────
+  getMyWallet:            tokenService.getMyWallet.bind(tokenService),
+  getMyTransactions:      tokenService.getMyTransactions.bind(tokenService),
+  getAllTransactions:      tokenService.getAllTransactions.bind(tokenService),
+  getAllWallets:           tokenService.getAllWallets.bind(tokenService),
+  adminAdjustTokens:      tokenService.adminAdjustTokens.bind(tokenService),
+  spendTokensForPromotion:tokenService.spendTokensForPromotion.bind(tokenService),
+
+  // ── Home Loan ─────────────────────────────────────────────────────────────
+  applyForLoan:              loanService.applyForLoan.bind(loanService),
+  getMyLoanApplications:     loanService.getMyApplications.bind(loanService),
+  getAllLoanApplications:     loanService.getAllApplications.bind(loanService),
+  updateLoanStatus:          loanService.updateApplicationStatus.bind(loanService),
+  getLoanStats:              loanService.getLoanStats.bind(loanService),
+
+  // ── Referral System ───────────────────────────────────────────────────────
+  getMyReferralCode:      referralService.getMyReferralCode.bind(referralService),
+  getMyReferrals:         referralService.getMyReferrals.bind(referralService),
+  applyReferralCode:      referralService.applyReferralCode.bind(referralService),
+  getAllReferrals:         referralService.getAllReferrals.bind(referralService),
+  invalidateReferral:     referralService.invalidateReferral.bind(referralService),
 };
 
 export { getValidUuid, idsEqual, SEED_PROFILES, SEED_PROPERTIES, SEED_REELS, getLastError as getLastApiError, setLastError as setLastApiError };

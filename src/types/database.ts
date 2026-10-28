@@ -155,3 +155,125 @@ export interface ChatMessage {
   sender?: Profile;
   receiver?: Profile;
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TOKEN SYSTEM
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type TokenTransactionType =
+  | 'earned_referral'      // tokens earned for referring a user
+  | 'earned_referred'      // tokens earned by the referred user on signup
+  | 'earned_admin'         // manually awarded by admin
+  | 'spent_promotion'      // spent to promote a property listing
+  | 'spent_featured'       // spent to feature a reel
+  | 'deducted_admin';      // manually deducted by admin
+
+export interface TokenTransaction {
+  id: string;
+  created_at: string;
+  user_id: string;
+  amount: number;           // positive = credit, negative = debit
+  type: TokenTransactionType;
+  description: string;
+  reference_id?: string;    // property_id, reel_id, referral_id etc.
+  admin_id?: string;        // set when admin manually adjusts
+  user?: Profile;
+}
+
+export interface TokenWallet {
+  user_id: string;
+  balance: number;
+  total_earned: number;
+  total_spent: number;
+  updated_at: string;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// HOME LOAN
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type LoanApplicationStatus =
+  | 'submitted'
+  | 'under_review'
+  | 'approved'
+  | 'rejected'
+  | 'disbursed'
+  | 'cancelled';
+
+export type EmploymentType =
+  | 'salaried'
+  | 'self_employed'
+  | 'business'
+  | 'freelancer'
+  | 'retired';
+
+export interface HomeLoanApplication {
+  id: string;
+  created_at: string;
+  updated_at: string;
+  user_id: string;
+
+  // Applicant
+  full_name: string;
+  email: string;
+  phone: string;
+  date_of_birth: string;
+  pan_number: string;
+  city: string;
+
+  // Employment & Income
+  employment_type: EmploymentType;
+  employer_name?: string;
+  monthly_income: number;
+  other_income?: number;
+  existing_emi?: number;
+
+  // Loan Details
+  loan_amount: number;
+  tenure_years: number;
+  purpose: string;           // purchase / construction / renovation
+
+  // Property Details
+  property_address?: string;
+  property_city?: string;
+  property_value?: number;
+  property_id?: string;      // linked to existing IndoProperty listing
+
+  // Status
+  status: LoanApplicationStatus;
+  admin_notes?: string;
+  approved_amount?: number;
+  disbursed_amount?: number;
+  disbursed_at?: string;
+  reviewed_by?: string;
+
+  // Joins
+  user?: Profile;
+  property?: Property;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// REFERRAL SYSTEM
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type ReferralStatus = 'pending' | 'completed' | 'rewarded' | 'invalid';
+
+export interface Referral {
+  id: string;
+  created_at: string;
+  referrer_id: string;       // user who shared the code
+  referred_id?: string;      // user who signed up using the code
+  referral_code: string;     // unique code generated for referrer
+  status: ReferralStatus;
+  reward_tokens: number;     // tokens awarded on successful referral
+  rewarded_at?: string;
+  referred_email?: string;   // email used during signup (for tracking)
+  referrer?: Profile;
+  referred?: Profile;
+}
+
+export interface ReferralConfig {
+  referrer_reward: number;   // tokens given to the person who referred
+  referred_reward: number;   // tokens given to the new user on signup
+  min_activity_required: boolean; // must the referred user complete an action?
+}

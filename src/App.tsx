@@ -5,7 +5,6 @@ import { BottomNav } from './components/BottomNav';
 import { PropertyCard } from './components/PropertyCard';
 import { PropertySearchFilter } from './components/PropertySearchFilter';
 import type { FilterState } from './components/PropertySearchFilter';
-
 import { PropertyDetailModal } from './components/PropertyDetailModal';
 import { EnquiryModal } from './components/EnquiryModal';
 import { ReelsFeed } from './components/ReelsFeed';
@@ -19,9 +18,12 @@ import { CreateReelModal } from './components/CreateReelModal';
 import { ChatModal } from './components/ChatModal';
 import { ChatInbox } from './components/ChatInbox';
 import { ReportModal } from './components/ReportModal';
+import { TokenWallet } from './components/TokenWallet';
+import { HomeLoanPage } from './components/HomeLoanPage';
+import { ReferralPage } from './components/ReferralPage';
 import type { Profile, Property, Reel, Enquiry, UserRole } from './types/database';
 import { api, idsEqual } from './services/api';
-import { Sparkles, Building2, Heart, Film } from 'lucide-react';
+import { Sparkles, Building2, Heart, Film, Coins } from 'lucide-react';
 
 export function App() {
   // ── Public route: /delete-account ──────────────────────────────────────────
@@ -32,7 +34,7 @@ export function App() {
     return <DeleteAccountPage />;
   }
 
-  const [currentTab, setCurrentTab] = useState<'properties' | 'reels' | 'chats' | 'saved' | 'professional' | 'admin'>('properties');
+  const [currentTab, setCurrentTab] = useState<'properties' | 'reels' | 'chats' | 'saved' | 'professional' | 'admin' | 'tokens' | 'homeloan' | 'referral'>('properties');
   const [currentUser, setCurrentUser] = useState<Profile | null>(null);
   const [allProfiles, setAllProfiles] = useState<Profile[]>([]);
   const [properties, setProperties] = useState<Property[]>([]);
@@ -536,6 +538,75 @@ export function App() {
         {/* TAB 5: ADMIN PANEL */}
         {currentTab === 'admin' && (
           <AdminPanel />
+        )}
+
+        {/* TAB 6: TOKEN WALLET */}
+        {currentTab === 'tokens' && (
+          currentUser ? (
+            <TokenWallet currentUser={currentUser} onOpenAuth={() => setIsAuthOpen(true)} />
+          ) : (
+            <div className="bg-white rounded-3xl p-10 text-center border border-slate-200 max-w-md mx-auto space-y-4 shadow-sm my-8">
+              <div className="w-16 h-16 rounded-3xl bg-amber-50 text-amber-600 flex items-center justify-center mx-auto border border-amber-200 shadow-sm">
+                <Coins className="w-8 h-8" />
+              </div>
+              <h3 className="text-xl font-bold text-slate-900">Platform Token Wallet</h3>
+              <p className="text-xs text-slate-500 leading-relaxed">
+                Sign in to check your platform credit balance, review transaction history, and use tokens to boost property listings.
+              </p>
+              <button
+                onClick={() => setIsAuthOpen(true)}
+                className="px-6 py-2.5 bg-gradient-to-r from-amber-600 to-indigo-600 text-white font-bold rounded-xl text-xs shadow-md shadow-amber-200 hover:opacity-95 transition cursor-pointer"
+              >
+                Sign In to View Wallet
+              </button>
+            </div>
+          )
+        )}
+
+        {/* TAB 7: HOME LOAN */}
+        {currentTab === 'homeloan' && (
+          currentUser ? (
+            <HomeLoanPage currentUser={currentUser} />
+          ) : (
+            <div className="bg-white rounded-3xl p-10 text-center border border-slate-200 max-w-md mx-auto space-y-4 shadow-sm my-8">
+              <div className="w-16 h-16 rounded-3xl bg-indigo-50 text-indigo-600 flex items-center justify-center mx-auto border border-indigo-200 shadow-sm">
+                <Building2 className="w-8 h-8" />
+              </div>
+              <h3 className="text-xl font-bold text-slate-900">Apply for Home Loan</h3>
+              <p className="text-xs text-slate-500 leading-relaxed">
+                Check eligibility, calculate EMIs, and submit your home loan application for verification with authorized lending partners.
+              </p>
+              <button
+                onClick={() => setIsAuthOpen(true)}
+                className="px-6 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold rounded-xl text-xs shadow-md shadow-indigo-200 hover:opacity-95 transition cursor-pointer"
+              >
+                Sign In to Apply
+              </button>
+            </div>
+          )
+        )}
+
+        {/* TAB 8: REFER & EARN */}
+        {currentTab === 'referral' && (
+          currentUser ? (
+            <ReferralPage currentUser={currentUser} />
+          ) : (
+            <div className="bg-white rounded-3xl p-10 text-center border border-slate-200 max-w-md mx-auto space-y-4 shadow-sm my-8">
+              <div className="w-16 h-16 rounded-3xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto border border-emerald-200 shadow-sm">
+                <Sparkles className="w-8 h-8" />
+              </div>
+              <h3 className="text-xl font-bold text-slate-900">Refer & Earn 50 Tokens</h3>
+              <p className="text-xs text-slate-500 leading-relaxed">
+                Invite friends and colleagues to IndoProperty. You receive 50 tokens for each successful referral, and they receive 25 welcome tokens!
+              </p>
+              <button
+                onClick={() => setIsAuthOpen(true)}
+                className="px-6 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-700 text-white font-bold rounded-xl text-xs shadow-md shadow-emerald-200 hover:opacity-95 transition cursor-pointer"
+              >
+                Sign In to Get Your Referral Link
+              </button>
+            </div>
+          )
         )}
       </main>
       )}

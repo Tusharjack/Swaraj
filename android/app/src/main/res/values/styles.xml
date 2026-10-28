@@ -1,9 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
-    <!-- Base application theme. -->
+    <!-- Base application theme -->
     <style name="AppTheme" parent="Theme.AppCompat.Light.DarkActionBar">
-        <!-- Customize your theme here. -->
         <item name="colorPrimary">@color/colorPrimary</item>
         <item name="colorPrimaryDark">@color/colorPrimaryDark</item>
         <item name="colorAccent">@color/colorAccent</item>
@@ -15,8 +14,19 @@
         <item name="android:background">@null</item>
     </style>
 
-
+    <!--
+        Splash screen theme using AndroidX core-splashscreen library.
+        windowSplashScreenBrandingImage and windowSplashScreenAnimationDuration
+        are Android 12+ (API 31+) only — removed to support minSdk 24.
+        Only these three attributes are safe on all API levels:
+          windowSplashScreenBackground  — splash background colour
+          windowSplashScreenAnimatedIcon — icon shown in the centre
+          postSplashScreenTheme          — theme to hand off to after splash
+    -->
     <style name="AppTheme.NoActionBarLaunch" parent="Theme.SplashScreen">
-        <item name="android:background">@drawable/splash</item>
+        <item name="windowSplashScreenBackground">@color/splashBackground</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/splash_logo</item>
+        <item name="postSplashScreenTheme">@style/AppTheme.NoActionBar</item>
     </style>
+
 </resources>

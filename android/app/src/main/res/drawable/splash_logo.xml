@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- IndoProperty splash logo — blue buildings icon -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="200dp"
+    android:height="200dp"
+    android:viewportWidth="200"
+    android:viewportHeight="200">
+
+    <!-- Background circle -->
+    <path
+        android:fillColor="#1B4FD8"
+        android:pathData="M100,100m-90,0a90,90 0,1 1,180 0a90,90 0,1 1,-180 0" />
+
+    <!-- Building left -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M55,130 L55,85 L75,75 L75,130 Z" />
+
+    <!-- Building center tall -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M80,130 L80,65 L100,55 L120,65 L120,130 Z" />
+
+    <!-- Building right -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M125,130 L125,85 L145,75 L145,130 Z" />
+
+    <!-- Base line -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M50,130 L150,130 L150,135 L50,135 Z" />
+
+    <!-- Windows center building -->
+    <path
+        android:fillColor="#1B4FD8"
+        android:pathData="M88,75 L96,75 L96,85 L88,85 Z" />
+    <path
+        android:fillColor="#1B4FD8"
+        android:pathData="M104,75 L112,75 L112,85 L104,85 Z" />
+    <path
+        android:fillColor="#1B4FD8"
+        android:pathData="M88,92 L96,92 L96,102 L88,102 Z" />
+    <path
+        android:fillColor="#1B4FD8"
+        android:pathData="M104,92 L112,92 L112,102 L104,102 Z" />
+
+</vector>

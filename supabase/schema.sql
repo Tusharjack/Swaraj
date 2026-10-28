@@ -493,8 +493,123 @@ CREATE POLICY "storage_avatars_insert_auth"
 -- =============================================================================
 -- DONE. Tables, triggers, indexes, and RLS policies are ready.
 -- Next steps:
---   1. Create the three Storage buckets above (properties, reels, avatars).
+--   1. Create the Storage buckets (properties, reels, avatars, loan_documents).
 --   2. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in .env with the real
 --      values from your Supabase project → Settings → API.
 --      The anon key MUST start with "eyJ".
 -- =============================================================================
+
+-- =============================================================================
+-- TOKEN SYSTEM, HOME LOAN & REFERRAL TABLES & POLICIES
+-- =============================================================================
+
+CREATE TABLE IF NOT EXISTS public.token_wallets (
+  user_id        UUID PRIMARY KEY REFERENCES public.profiles(id) ON DELETE CASCADE,
+  balance        INTEGER NOT NULL DEFAULT 25 CHECK (balance >= 0),
+  total_earned   INTEGER NOT NULL DEFAULT 25 CHECK (total_earned >= 0),
+  total_spent    INTEGER NOT NULL DEFAULT 0 CHECK (total_spent >= 0),
+  created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS public.token_transactions (
+  id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  user_id        UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  amount         INTEGER NOT NULL,
+  type           TEXT NOT NULL CHECK (type IN (
+                   'earned_referral',
+                   'earned_referred',
+                   'earned_admin',
+                   'spent_promotion',
+                   'spent_featured',
+                   'deducted_admin'
+                 )),
+  description    TEXT NOT NULL,
+  reference_id   TEXT,
+  admin_id       UUID REFERENCES public.profiles(id) ON DELETE SET NULL
+);
+
+CREATE TABLE IF NOT EXISTS public.loan_applications (
+  id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  user_id          UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  full_name        TEXT NOT NULL,
+  email            TEXT NOT NULL,
+  phone            TEXT NOT NULL,
+  date_of_birth    DATE NOT NULL,
+  pan_number       TEXT NOT NULL,
+  city             TEXT NOT NULL,
+  employment_type  TEXT NOT NULL CHECK (employment_type IN ('salaried', 'self_employed', 'business', 'freelancer', 'retired')),
+  employer_name    TEXT,
+  monthly_income   NUMERIC NOT NULL CHECK (monthly_income > 0),
+  other_income     NUMERIC DEFAULT 0,
+  existing_emi     NUMERIC DEFAULT 0,
+  loan_amount      NUMERIC NOT NULL CHECK (loan_amount > 0),
+  tenure_years     INTEGER NOT NULL CHECK (tenure_years >= 1 AND tenure_years <= 35),
+  purpose          TEXT NOT NULL,
+  property_address TEXT,
+  property_city    TEXT,
+  property_value   NUMERIC,
+  property_id      UUID REFERENCES public.properties(id) ON DELETE SET NULL,
+  status           TEXT NOT NULL DEFAULT 'submitted' CHECK (status IN (
+                     'submitted', 'under_review', 'approved', 'rejected', 'disbursed', 'cancelled'
+                   )),
+  admin_notes      TEXT,
+  approved_amount  NUMERIC,
+  disbursed_amount NUMERIC,
+  disbursed_at     TIMESTAMPTZ,
+  reviewed_by      UUID REFERENCES public.profiles(id) ON DELETE SET NULL
+);
+
+CREATE TABLE IF NOT EXISTS public.referrals (
+  id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  referrer_id    UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  referred_id    UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
+  referral_code  TEXT NOT NULL,
+  status         TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'completed', 'rewarded', 'invalid')),
+  reward_tokens  INTEGER NOT NULL DEFAULT 50,
+  rewarded_at    TIMESTAMPTZ,
+  referred_email TEXT
+);
+
+ALTER TABLE public.token_wallets ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.token_transactions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.loan_applications ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.referrals ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "wallets_select" ON public.token_wallets
+  FOR SELECT USING (auth.uid() = user_id OR EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin'));
+
+CREATE POLICY "wallets_admin_update" ON public.token_wallets
+  FOR UPDATE USING (EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin'));
+
+CREATE POLICY "transactions_select" ON public.token_transactions
+  FOR SELECT USING (auth.uid() = user_id OR EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin'));
+
+CREATE POLICY "transactions_admin_insert" ON public.token_transactions
+  FOR INSERT WITH CHECK (EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin'));
+
+CREATE POLICY "loans_select" ON public.loan_applications
+  FOR SELECT USING (auth.uid() = user_id OR EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin'));
+
+CREATE POLICY "loans_insert" ON public.loan_applications
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "loans_admin_update" ON public.loan_applications
+  FOR UPDATE USING (EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin'));
+
+CREATE POLICY "loans_admin_delete" ON public.loan_applications
+  FOR DELETE USING (EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin'));
+
+CREATE POLICY "referrals_select" ON public.referrals
+  FOR SELECT USING (auth.uid() = referrer_id OR auth.uid() = referred_id OR EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin'));
+
+CREATE POLICY "referrals_insert" ON public.referrals
+  FOR INSERT WITH CHECK (auth.uid() = referrer_id);
+
+CREATE POLICY "referrals_admin_all" ON public.referrals
+  FOR ALL USING (EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin'));
+
