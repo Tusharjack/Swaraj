@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Film, Upload, Link as LinkIcon, CheckCircle2, Video } from 'lucide-react';
+import { Film, Upload, Link as LinkIcon, CheckCircle2, Video, Clock } from 'lucide-react';
 import { api } from '../services/api';
+import { uploadToCloudinary } from '../lib/cloudinary';
 import type { Profile, Property, Reel } from '../types/database';
 
 interface CreateReelModalProps {
@@ -26,6 +27,11 @@ export const CreateReelModal: React.FC<CreateReelModalProps> = ({
   const [uploadMode, setUploadMode] = useState<'file' | 'url'>('file');
   const [loading, setLoading] = useState(false);
   const [uploadingProgress, setUploadingProgress] = useState(false);
+  const [uploadPct, setUploadPct] = useState(0);
+  const [uploadedBytes, setUploadedBytes] = useState(0);
+  const [totalBytes, setTotalBytes] = useState(0);
+  const [startTime, setStartTime] = useState<number | null>(null);
+  const [etaSeconds, setEtaSeconds] = useState<number | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   if (!isOpen) return null;
@@ -53,12 +59,25 @@ export const CreateReelModal: React.FC<CreateReelModalProps> = ({
 
     setLoading(true);
     setUploadingProgress(true);
+    setUploadPct(0);
+    setEtaSeconds(null);
+    setStartTime(Date.now());
 
     try {
       let finalVideoUrl = videoPreviewUrl;
 
       if (uploadMode === 'file' && videoFile) {
-        finalVideoUrl = await api.uploadReelMedia(videoFile);
+        setTotalBytes(videoFile.size);
+        finalVideoUrl = await uploadToCloudinary('reels', videoFile, (pct) => {
+          setUploadPct(pct);
+          setUploadedBytes(Math.round((pct / 100) * videoFile.size));
+          // ETA calculation
+          const elapsed = (Date.now() - (startTime ?? Date.now())) / 1000;
+          if (pct > 5 && elapsed > 0) {
+            const totalEstimated = elapsed / (pct / 100);
+            setEtaSeconds(Math.max(0, Math.round(totalEstimated - elapsed)));
+          }
+        });
       }
 
       const createdReel = await api.createReel({
@@ -82,6 +101,9 @@ export const CreateReelModal: React.FC<CreateReelModalProps> = ({
     } finally {
       setLoading(false);
       setUploadingProgress(false);
+      setUploadPct(0);
+      setEtaSeconds(null);
+      setStartTime(null);
     }
   };
 
@@ -240,28 +262,65 @@ export const CreateReelModal: React.FC<CreateReelModalProps> = ({
             </select>
           </div>
 
-          <div className="pt-2 flex justify-end gap-3 shrink-0">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 bg-slate-100 text-slate-700 rounded-xl text-xs font-semibold hover:bg-slate-200 transition"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={loading}
-              className="px-6 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-bold shadow-md shadow-purple-200 transition flex items-center gap-1.5 disabled:opacity-50"
-            >
-              {uploadingProgress ? (
-                <>
-                  <span className="inline-block animate-spin rounded-full h-3.5 w-3.5 border-2 border-white border-t-transparent" />
-                  Uploading Video...
-                </>
-              ) : (
-                'Publish Video Reel'
-              )}
-            </button>
+          <div className="pt-2 flex flex-col gap-3 shrink-0">
+            {/* Upload progress bar */}
+            {uploadingProgress && uploadMode === 'file' && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-xs text-slate-600 font-medium">
+                  <span className="flex items-center gap-1.5">
+                    <span className="inline-block w-3 h-3 border-2 border-purple-600 border-t-transparent rounded-full animate-spin" />
+                    Uploading to Cloudinary…
+                  </span>
+                  <span className="font-black text-purple-700">{uploadPct}%</span>
+                </div>
+                {/* Progress bar */}
+                <div className="w-full h-2 bg-slate-200 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-gradient-to-r from-purple-500 to-indigo-600 rounded-full transition-all duration-300"
+                    style={{ width: `${uploadPct}%` }}
+                  />
+                </div>
+                {/* Stats row */}
+                <div className="flex items-center justify-between text-[11px] text-slate-400">
+                  <span>
+                    {(uploadedBytes / 1024 / 1024).toFixed(1)} MB / {(totalBytes / 1024 / 1024).toFixed(1)} MB
+                  </span>
+                  {etaSeconds !== null && (
+                    <span className="flex items-center gap-1 text-indigo-600 font-semibold">
+                      <Clock className="w-3 h-3" />
+                      {etaSeconds < 60
+                        ? `~${etaSeconds}s remaining`
+                        : `~${Math.ceil(etaSeconds / 60)}m remaining`}
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
+
+            <div className="flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={onClose}
+                disabled={loading}
+                className="px-4 py-2 bg-slate-100 text-slate-700 rounded-xl text-xs font-semibold hover:bg-slate-200 transition disabled:opacity-40"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={loading}
+                className="px-6 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-bold shadow-md shadow-purple-200 transition flex items-center gap-1.5 disabled:opacity-60"
+              >
+                {uploadingProgress ? (
+                  <>
+                    <span className="inline-block w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    {uploadPct > 0 ? `Uploading ${uploadPct}%…` : 'Uploading…'}
+                  </>
+                ) : (
+                  'Publish Video Reel'
+                )}
+              </button>
+            </div>
           </div>
         </form>
       </div>

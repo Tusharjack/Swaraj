@@ -292,7 +292,8 @@ export const ReelsFeed: React.FC<ReelsFeedProps> = ({
                 <div className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black/90 via-black/40 to-transparent pointer-events-none" />
 
                 {/* Right action bar */}
-                <div className="absolute right-3 bottom-20 z-20 flex flex-col items-center gap-4 text-white">
+                <div className="absolute right-3 z-20 flex flex-col items-center gap-4 text-white"
+                  style={{ bottom: 'calc(env(safe-area-inset-bottom) + 4.5rem)' }}>
                   {/* Creator avatar */}
                   {reel.creator && (
                     <div className="relative mb-1">
@@ -366,8 +367,10 @@ export const ReelsFeed: React.FC<ReelsFeedProps> = ({
                 </div>
 
                 {/* Bottom content — title, creator, property pill, action buttons */}
-                <div className="absolute left-4 right-16 bottom-6 z-20 space-y-2 text-white"
-                  style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
+                <div className="absolute left-4 right-16 z-20 space-y-2 text-white"
+                  style={{
+                    bottom: 'calc(env(safe-area-inset-bottom) + 4rem)',
+                  }}>
                   {reel.creator && (
                     <div className="flex items-center gap-2">
                       <span className="font-extrabold text-sm text-white drop-shadow">

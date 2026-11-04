@@ -18,12 +18,13 @@ import { CreateReelModal } from './components/CreateReelModal';
 import { ChatModal } from './components/ChatModal';
 import { ChatInbox } from './components/ChatInbox';
 import { ReportModal } from './components/ReportModal';
-import { TokenWallet } from './components/TokenWallet';
 import { HomeLoanPage } from './components/HomeLoanPage';
-import { ReferralPage } from './components/ReferralPage';
-import type { Profile, Property, Reel, Enquiry, UserRole } from './types/database';
+import { ProfilePage } from './components/ProfilePage';
+import { TokenPage } from './components/TokenPage';
+import type { Profile, Property, Reel, Enquiry } from './types/database';
 import { api, idsEqual } from './services/api';
-import { Sparkles, Building2, Heart, Film, Coins } from 'lucide-react';
+import type { AppTab } from './components/Navbar';
+import { Sparkles, Building2, Heart, Film } from 'lucide-react';
 
 export function App() {
   // ── Public route: /delete-account ──────────────────────────────────────────
@@ -34,7 +35,7 @@ export function App() {
     return <DeleteAccountPage />;
   }
 
-  const [currentTab, setCurrentTab] = useState<'properties' | 'reels' | 'chats' | 'saved' | 'professional' | 'admin' | 'tokens' | 'homeloan' | 'referral'>('properties');
+  const [currentTab, setCurrentTab] = useState<AppTab>('reels');
   const [currentUser, setCurrentUser] = useState<Profile | null>(null);
   const [allProfiles, setAllProfiles] = useState<Profile[]>([]);
   const [properties, setProperties] = useState<Property[]>([]);
@@ -58,7 +59,6 @@ export function App() {
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
   const [enquiryTarget, setEnquiryTarget] = useState<{ property?: Property | null; reel?: Reel | null } | null>(null);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
-  const [authRole] = useState<UserRole>('customer');
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isSupabaseConfigOpen, setIsSupabaseConfigOpen] = useState(false);
   const [isCreatePropertyOpen, setIsCreatePropertyOpen] = useState(false);
@@ -524,15 +524,25 @@ export function App() {
           </div>
         )}
 
-        {/* TAB 4: PROFESSIONAL DASHBOARD */}
-        {currentTab === 'professional' && currentUser && (
-          <ProfessionalDashboard
-            currentUser={currentUser}
-            onOpenCreateProperty={() => setIsCreatePropertyOpen(true)}
-            onOpenCreateReel={() => setIsCreateReelOpen(true)}
-            onSelectProperty={handleSelectProperty}
-            onOpenChat={handleOpenChat}
-          />
+        {/* TAB 4: PROFESSIONAL DASHBOARD / PROFILE */}
+        {currentTab === 'professional' && (
+          currentUser ? (
+            <ProfessionalDashboard
+              currentUser={currentUser}
+              onOpenCreateProperty={() => setIsCreatePropertyOpen(true)}
+              onOpenCreateReel={() => setIsCreateReelOpen(true)}
+              onSelectProperty={handleSelectProperty}
+              onOpenChat={handleOpenChat}
+            />
+          ) : (
+            <ProfilePage
+              currentUser={null}
+              onOpenAuth={() => setIsAuthOpen(true)}
+              onOpenProfile={() => setIsProfileOpen(true)}
+              onLogout={handleLogout}
+              onTabChange={setCurrentTab}
+            />
+          )
         )}
 
         {/* TAB 5: ADMIN PANEL */}
@@ -540,27 +550,9 @@ export function App() {
           <AdminPanel />
         )}
 
-        {/* TAB 6: TOKEN WALLET */}
+        {/* TAB 6: TOKEN WALLET + REFERRAL (unified) */}
         {currentTab === 'tokens' && (
-          currentUser ? (
-            <TokenWallet currentUser={currentUser} onOpenAuth={() => setIsAuthOpen(true)} />
-          ) : (
-            <div className="bg-white rounded-3xl p-10 text-center border border-slate-200 max-w-md mx-auto space-y-4 shadow-sm my-8">
-              <div className="w-16 h-16 rounded-3xl bg-amber-50 text-amber-600 flex items-center justify-center mx-auto border border-amber-200 shadow-sm">
-                <Coins className="w-8 h-8" />
-              </div>
-              <h3 className="text-xl font-bold text-slate-900">Platform Token Wallet</h3>
-              <p className="text-xs text-slate-500 leading-relaxed">
-                Sign in to check your platform credit balance, review transaction history, and use tokens to boost property listings.
-              </p>
-              <button
-                onClick={() => setIsAuthOpen(true)}
-                className="px-6 py-2.5 bg-gradient-to-r from-amber-600 to-indigo-600 text-white font-bold rounded-xl text-xs shadow-md shadow-amber-200 hover:opacity-95 transition cursor-pointer"
-              >
-                Sign In to View Wallet
-              </button>
-            </div>
-          )
+          <TokenPage currentUser={currentUser} onOpenAuth={() => setIsAuthOpen(true)} />
         )}
 
         {/* TAB 7: HOME LOAN */}
@@ -586,27 +578,9 @@ export function App() {
           )
         )}
 
-        {/* TAB 8: REFER & EARN */}
+        {/* TAB 8: REFER & EARN — now handled inside TokenPage, redirect there */}
         {currentTab === 'referral' && (
-          currentUser ? (
-            <ReferralPage currentUser={currentUser} />
-          ) : (
-            <div className="bg-white rounded-3xl p-10 text-center border border-slate-200 max-w-md mx-auto space-y-4 shadow-sm my-8">
-              <div className="w-16 h-16 rounded-3xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto border border-emerald-200 shadow-sm">
-                <Sparkles className="w-8 h-8" />
-              </div>
-              <h3 className="text-xl font-bold text-slate-900">Refer & Earn 50 Tokens</h3>
-              <p className="text-xs text-slate-500 leading-relaxed">
-                Invite friends and colleagues to IndoProperty. You receive 50 tokens for each successful referral, and they receive 25 welcome tokens!
-              </p>
-              <button
-                onClick={() => setIsAuthOpen(true)}
-                className="px-6 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-700 text-white font-bold rounded-xl text-xs shadow-md shadow-emerald-200 hover:opacity-95 transition cursor-pointer"
-              >
-                Sign In to Get Your Referral Link
-              </button>
-            </div>
-          )
+          <TokenPage currentUser={currentUser} onOpenAuth={() => setIsAuthOpen(true)} />
         )}
       </main>
       )}
@@ -675,7 +649,6 @@ export function App() {
           loadData();
         }}
         profilesList={allProfiles}
-        initialRole={authRole}
       />
 
       <ProfileModal

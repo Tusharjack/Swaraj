@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Building2, Film, Heart, Shield, LogIn, Sparkles, MessageCircle, Coins, Gift, Landmark } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Building2, Film, Shield, LogIn, Sparkles, MessageCircle, Coins, Gift, Landmark, ChevronDown, Heart } from 'lucide-react';
 import type { Profile } from '../types/database';
 import { api } from '../services/api';
 
@@ -13,163 +13,145 @@ interface NavbarProps {
   savedCount: number;
 }
 
-export const Navbar: React.FC<NavbarProps> = ({
-  currentTab,
-  onTabChange,
-  currentUser,
-  onOpenAuth,
-  savedCount
-}) => {
+export const Navbar: React.FC<NavbarProps> = ({ currentTab, onTabChange, currentUser, onOpenAuth, savedCount }) => {
   const [tokenBalance, setTokenBalance] = useState<number | null>(null);
+  const [moreOpen, setMoreOpen] = useState(false);
+  const moreRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (currentUser) {
-      api.getMyWallet().then(w => {
-        if (w) setTokenBalance(w.balance);
-      }).catch(() => {});
+      api.getMyWallet().then(w => { if (w) setTokenBalance(w.balance); }).catch(() => {});
     } else {
       setTokenBalance(null);
     }
   }, [currentUser, currentTab]);
 
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (moreRef.current && !moreRef.current.contains(e.target as Node)) setMoreOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const navBtn = (tab: AppTab, label: string, icon: React.ReactNode, extra?: React.ReactNode) => (
+    <button
+      key={tab}
+      onClick={() => onTabChange(tab)}
+      className={`px-3.5 py-2 rounded-xl transition flex items-center gap-1.5 cursor-pointer whitespace-nowrap text-xs font-bold ${
+        currentTab === tab ? 'bg-white text-indigo-600 shadow-sm font-black' : 'text-slate-600 hover:text-slate-900'
+      }`}
+    >
+      {icon} {label} {extra}
+    </button>
+  );
+
+  // "More" dropdown items — Tokens, Home Loan, Refer, Saved
+  const moreItems: { tab: AppTab; label: string; icon: React.ReactNode; desc: string }[] = [
+    { tab: 'tokens',   label: 'Token Wallet', icon: <Coins className="w-4 h-4 text-amber-500" />,   desc: tokenBalance !== null ? `${tokenBalance} tokens` : 'Credits & rewards' },
+    { tab: 'homeloan', label: 'Home Loan',    icon: <Landmark className="w-4 h-4 text-indigo-500" />, desc: 'Apply & track loans' },
+    { tab: 'referral', label: 'Refer & Earn', icon: <Gift className="w-4 h-4 text-emerald-500" />,   desc: 'Earn 50 tokens/referral' },
+    { tab: 'saved',    label: 'Saved',         icon: <Heart className="w-4 h-4 text-rose-500" />,     desc: `${savedCount} saved items` },
+  ];
+
+  const isMoreActive = ['tokens', 'homeloan', 'referral', 'saved'].includes(currentTab);
+
   return (
-    <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200/80 transition-all pt-[max(0.5rem,env(safe-area-inset-top))]">
-      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-2 sm:gap-4">
-        {/* Logo & Brand */}
-        <div 
-          onClick={() => onTabChange('properties')}
-          className="flex items-center gap-2.5 cursor-pointer group shrink-0"
-        >
-          <img
-            src="/logo.png"
-            alt="IndoProperty"
-            className="h-9 sm:h-10 w-auto object-contain rounded-lg group-hover:scale-105 transition"
-          />
-          <div>
-            <div className="flex items-center gap-1.5">
-              <span className="font-extrabold text-slate-900 tracking-tight text-lg sm:text-xl leading-none font-sans">
-                IndoProperty
-              </span>
-            </div>
-            <p className="text-[10px] sm:text-[11px] text-slate-500 font-semibold leading-tight">
-              Real Estate for a Better Tomorrow
-            </p>
+    <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200/80 pt-[max(0.5rem,env(safe-area-inset-top))]">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-3">
+
+        {/* Logo */}
+        <div onClick={() => onTabChange('properties')} className="flex items-center gap-2.5 cursor-pointer group shrink-0">
+          <img src="/logo.png" alt="IndoProperty" className="h-9 sm:h-10 w-auto object-contain rounded-lg group-hover:scale-105 transition" />
+          <div className="hidden sm:block">
+            <span className="font-extrabold text-slate-900 tracking-tight text-lg leading-none block">IndoProperty</span>
+            <p className="text-[10px] text-slate-500 font-semibold leading-tight">Real Estate for a Better Tomorrow</p>
           </div>
         </div>
 
-        {/* Desktop Navigation Links */}
+        {/* Desktop Nav — only 4 primary items + More dropdown */}
         <nav className="hidden lg:flex items-center gap-1 bg-slate-100/80 p-1.5 rounded-2xl text-xs font-bold text-slate-700">
-          <button
-            onClick={() => onTabChange('properties')}
-            className={`px-3.5 py-2 rounded-xl transition flex items-center gap-1.5 cursor-pointer ${
-              currentTab === 'properties' ? 'bg-white text-indigo-600 shadow-sm font-black' : 'hover:text-slate-900'
-            }`}
-          >
-            <Building2 className="w-4 h-4" /> Properties
-          </button>
+          {navBtn('properties', 'Properties', <Building2 className="w-4 h-4" />)}
+
           <button
             onClick={() => onTabChange('reels')}
-            className={`px-3.5 py-2 rounded-xl transition flex items-center gap-1.5 relative cursor-pointer ${
-              currentTab === 'reels' ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md' : 'hover:text-slate-900'
+            className={`px-3.5 py-2 rounded-xl transition flex items-center gap-1.5 relative cursor-pointer text-xs font-bold ${
+              currentTab === 'reels' ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md font-black' : 'text-slate-600 hover:text-slate-900'
             }`}
           >
             <Film className="w-4 h-4" /> Reels
-            <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping absolute top-1.5 right-1.5" />
+            <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping absolute top-2 right-2" />
           </button>
-          <button
-            onClick={() => onTabChange('chats')}
-            className={`px-3.5 py-2 rounded-xl transition flex items-center gap-1.5 relative cursor-pointer ${
-              currentTab === 'chats' ? 'bg-white text-indigo-600 shadow-sm font-black' : 'hover:text-slate-900'
-            }`}
-          >
-            <MessageCircle className="w-4 h-4 text-purple-600" /> Messages
-          </button>
-          <button
-            onClick={() => onTabChange('homeloan')}
-            className={`px-3.5 py-2 rounded-xl transition flex items-center gap-1.5 cursor-pointer ${
-              currentTab === 'homeloan' ? 'bg-white text-indigo-700 shadow-sm font-black' : 'hover:text-slate-900'
-            }`}
-          >
-            <Landmark className="w-4 h-4 text-indigo-600" /> Home Loan
-          </button>
-          <button
-            onClick={() => onTabChange('tokens')}
-            className={`px-3.5 py-2 rounded-xl transition flex items-center gap-1.5 cursor-pointer ${
-              currentTab === 'tokens' ? 'bg-white text-amber-700 shadow-sm font-black' : 'hover:text-slate-900'
-            }`}
-          >
-            <Coins className="w-4 h-4 text-amber-500" /> Tokens
-            {tokenBalance !== null && (
-              <span className="px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[10px] font-black">
-                {tokenBalance}
-              </span>
+
+          {navBtn('chats', 'Messages', <MessageCircle className="w-4 h-4 text-purple-500" />)}
+
+          {currentUser && navBtn('professional', 'Dashboard', <Sparkles className="w-4 h-4 text-amber-500" />)}
+
+          {currentUser?.role === 'admin' && navBtn('admin', 'Admin', <Shield className="w-4 h-4 text-purple-600" />)}
+
+          {/* More dropdown */}
+          <div ref={moreRef} className="relative">
+            <button
+              onClick={() => setMoreOpen(p => !p)}
+              className={`px-3.5 py-2 rounded-xl transition flex items-center gap-1.5 cursor-pointer text-xs font-bold ${
+                isMoreActive ? 'bg-white text-indigo-600 shadow-sm font-black' : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              More <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${moreOpen ? 'rotate-180' : ''}`} />
+              {isMoreActive && <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 absolute top-2 right-2" />}
+            </button>
+
+            {moreOpen && (
+              <div className="absolute top-full right-0 mt-2 w-56 bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-150">
+                {moreItems.map(item => (
+                  <button
+                    key={item.tab}
+                    onClick={() => { onTabChange(item.tab); setMoreOpen(false); }}
+                    className={`w-full text-left px-4 py-3 flex items-center gap-3 hover:bg-slate-50 transition ${
+                      currentTab === item.tab ? 'bg-indigo-50' : ''
+                    }`}
+                  >
+                    <div className={`p-2 rounded-xl shrink-0 ${currentTab === item.tab ? 'bg-indigo-100' : 'bg-slate-100'}`}>
+                      {item.icon}
+                    </div>
+                    <div>
+                      <p className={`text-xs font-bold ${currentTab === item.tab ? 'text-indigo-700' : 'text-slate-800'}`}>{item.label}</p>
+                      <p className="text-[11px] text-slate-400">{item.desc}</p>
+                    </div>
+                  </button>
+                ))}
+              </div>
             )}
-          </button>
-          <button
-            onClick={() => onTabChange('referral')}
-            className={`px-3.5 py-2 rounded-xl transition flex items-center gap-1.5 cursor-pointer ${
-              currentTab === 'referral' ? 'bg-white text-emerald-700 shadow-sm font-black' : 'hover:text-slate-900'
-            }`}
-          >
-            <Gift className="w-4 h-4 text-emerald-600" /> Refer & Earn
-          </button>
-          <button
-            onClick={() => onTabChange('saved')}
-            className={`px-3 py-2 rounded-xl transition flex items-center gap-1.5 cursor-pointer ${
-              currentTab === 'saved' ? 'bg-white text-indigo-600 shadow-sm font-black' : 'hover:text-slate-900'
-            }`}
-          >
-            <Heart className="w-4 h-4" /> Saved ({savedCount})
-          </button>
-
-          {currentUser && (
-            <button
-              onClick={() => onTabChange('professional')}
-              className={`px-3.5 py-2 rounded-xl transition flex items-center gap-1.5 cursor-pointer ${
-                currentTab === 'professional' ? 'bg-white text-indigo-600 shadow-sm font-black' : 'hover:text-slate-900'
-              }`}
-            >
-              <Sparkles className="w-4 h-4 text-amber-500" /> Post & Leads
-            </button>
-          )}
-
-          {currentUser?.role === 'admin' && (
-            <button
-              onClick={() => onTabChange('admin')}
-              className={`px-3.5 py-2 rounded-xl transition flex items-center gap-1.5 cursor-pointer ${
-                currentTab === 'admin' ? 'bg-white text-purple-700 shadow-sm font-black' : 'hover:text-slate-900'
-              }`}
-            >
-              <Shield className="w-4 h-4 text-purple-600" /> Admin
-            </button>
-          )}
+          </div>
         </nav>
 
-        {/* Right Auth / Token Balance & Profile Button */}
-        <div className="flex items-center gap-2">
+        {/* Right — token balance chip + profile */}
+        <div className="flex items-center gap-2 shrink-0">
           {currentUser && (
             <button
               onClick={() => onTabChange('tokens')}
-              title="Token Wallet"
               className="flex items-center gap-1.5 px-2.5 py-1.5 bg-amber-50 hover:bg-amber-100 border border-amber-200/80 rounded-xl text-xs font-black text-amber-800 transition cursor-pointer"
+              title="Token Wallet"
             >
-              <Coins className="w-4 h-4 text-amber-600" />
+              <Coins className="w-3.5 h-3.5 text-amber-600" />
               <span>{tokenBalance !== null ? tokenBalance : '…'}</span>
-              <span className="hidden sm:inline text-[10px] font-bold text-amber-600 uppercase">Tokens</span>
             </button>
           )}
 
           {currentUser ? (
             <button
               onClick={onOpenAuth}
-              className="flex items-center gap-2 p-1.5 pl-2.5 sm:pl-3 bg-slate-100 hover:bg-slate-200 rounded-2xl text-xs font-semibold text-slate-800 transition border border-slate-200 cursor-pointer"
+              className="flex items-center gap-2 p-1.5 pl-2.5 bg-slate-100 hover:bg-slate-200 rounded-2xl text-xs font-semibold text-slate-800 transition border border-slate-200 cursor-pointer"
             >
-              <span className="hidden sm:inline max-w-[100px] truncate">{currentUser.full_name}</span>
-              <span className="px-1.5 py-0.5 rounded text-[10px] font-extrabold uppercase bg-indigo-600 text-white">
-                {currentUser.role === 'admin' ? 'ADMIN' : 'PRO'}
+              <span className="hidden sm:inline max-w-[90px] truncate">{currentUser.full_name}</span>
+              <span className={`px-1.5 py-0.5 rounded text-[10px] font-extrabold uppercase text-white ${
+                currentUser.role === 'admin' ? 'bg-purple-600' : 'bg-indigo-600'
+              }`}>
+                {currentUser.role === 'admin' ? 'ADMIN' : currentUser.role === 'professional' ? 'PRO' : 'ME'}
               </span>
               <img
-                src={currentUser.avatar_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100'}
+                src={currentUser.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${currentUser.email}`}
                 alt={currentUser.full_name}
                 className="w-7 h-7 rounded-full object-cover border border-white"
               />
@@ -177,7 +159,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           ) : (
             <button
               onClick={onOpenAuth}
-              className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl text-xs shadow-md transition flex items-center gap-1.5 cursor-pointer"
+              className="flex items-center gap-1.5 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl text-xs shadow-md transition cursor-pointer"
             >
               <LogIn className="w-3.5 h-3.5" /> Sign In
             </button>

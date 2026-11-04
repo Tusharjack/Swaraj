@@ -46,19 +46,34 @@ export const supabase = createClient(
 );
 
 /**
- * Upload a file to Supabase Storage. Throws if Supabase is not configured or
- * if the upload fails — callers must handle the error and show it to the user.
- * There is intentionally no IndexedDB/local fallback here; local blobs cannot
- * be served to other users.
+ * Upload a file to Cloudinary (primary) or fall back to Supabase Storage.
+ * Cloudinary is preferred — it has a generous free tier and global CDN,
+ * which avoids Supabase's 5 GB egress limit on the free plan.
+ *
+ * To use Cloudinary:
+ *   1. Go to cloudinary.com/console/settings/upload → Upload Presets
+ *   2. Add preset → Signing mode: Unsigned → Name: indoproperty_unsigned
+ *   3. Set VITE_CLOUDINARY_CLOUD_NAME=m2fefd4f in .env (already done)
  */
 export async function uploadFileToSupabase(
   bucket: 'reels' | 'properties' | 'avatars',
   file: File
 ): Promise<string> {
+  // Try Cloudinary first
+  try {
+    const { uploadToCloudinary, isCloudinaryConfigured } = await import('./cloudinary');
+    if (isCloudinaryConfigured) {
+      return await uploadToCloudinary(bucket, file);
+    }
+  } catch (cloudErr) {
+    console.warn('[Upload] Cloudinary failed, falling back to Supabase:', cloudErr);
+  }
+
+  // Fallback: Supabase Storage
   if (!isSupabaseConfigured) {
     throw new Error(
-      'Supabase is not configured. Please set VITE_SUPABASE_URL and ' +
-      'VITE_SUPABASE_ANON_KEY in your .env file.'
+      'Neither Cloudinary nor Supabase Storage is configured. ' +
+      'Set VITE_CLOUDINARY_CLOUD_NAME in your .env file.'
     );
   }
 
@@ -71,9 +86,7 @@ export async function uploadFileToSupabase(
     .upload(filePath, file, { cacheControl: '3600', upsert: true, contentType: mimeType });
 
   if (uploadError) {
-    throw new Error(
-      `Storage upload failed (bucket: ${bucket}): ${uploadError.message}`
-    );
+    throw new Error(`Storage upload failed (bucket: ${bucket}): ${uploadError.message}`);
   }
 
   const { data } = supabase.storage.from(bucket).getPublicUrl(filePath);
