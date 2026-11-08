@@ -29,7 +29,7 @@ const ReelsIcon: React.FC = () => (
 const TABS = [
   {
     id: 'properties' as AppTab,
-    label: 'Explore',
+    label: 'Search',
     icon: <Compass size={24} strokeWidth={2} />,
     iconActive: <Compass size={24} strokeWidth={2.5} />,
   },

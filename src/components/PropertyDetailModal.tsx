@@ -266,7 +266,7 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
         onClose={() => setIsShareOpen(false)}
         title={property.title}
         text={`Check out ${property.title} in ${property.location}, ${property.city}`}
-        url={window.location.href}
+        url="https://play.google.com/store/apps/details?id=com.swaraj.realestate&pcampaignid=web_share"
         imageUrl={images[0]}
       />
     </div>

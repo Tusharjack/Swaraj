@@ -280,28 +280,47 @@ export function App() {
 
       {/* Hero Welcome Header */}
       {currentTab === 'properties' && (
-        <section className="bg-gradient-to-b from-white to-slate-50 border-b border-slate-200/60 py-10 px-4 sm:px-6 lg:px-8">
-          <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
-            <div className="space-y-4 text-center md:text-left">
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-50 border border-indigo-200 text-indigo-700 text-xs font-bold">
-                <Sparkles className="w-3.5 h-3.5 text-indigo-600" /> IndoProperty — Real Estate for a Better Tomorrow
+        <section className="bg-white border-b border-slate-100 px-4 sm:px-6 lg:px-8 py-7">
+          <div className="max-w-7xl mx-auto">
+            {/* Tag line */}
+            <div className="flex items-center gap-2 mb-3">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-50 border border-indigo-100 text-indigo-700 text-[11px] font-bold">
+                <Sparkles className="w-3 h-3 text-indigo-500" /> India's Real Estate & Video Platform
               </div>
-              <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-slate-900 tracking-tight leading-tight">
-                Discover & Post Verified Homes with <span className="text-indigo-600">Video Reels</span>
-              </h1>
-              <p className="text-sm sm:text-base text-slate-600 max-w-2xl font-medium">
-                Explore luxury apartments, sea-facing penthouses & villas with immersive vertical video walkthroughs and instant direct enquiries.
-              </p>
-              
-              {/* Mainpage Post Button */}
-              <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 pt-2">
-                <button
-                  onClick={handlePostPropertyAction}
-                  className="px-6 py-3.5 bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-700 hover:from-indigo-700 hover:to-purple-700 text-white font-extrabold text-sm rounded-2xl shadow-xl shadow-indigo-500/25 flex items-center gap-2 transition active:scale-98 cursor-pointer"
-                >
-                  <Sparkles className="w-4 h-4 text-amber-300" /> + Post Property to Dashboard
-                </button>
+            </div>
+
+            {/* Headline + CTA row */}
+            <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+              <div>
+                <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight leading-snug">
+                  Find Your <span className="text-indigo-600">Dream Home</span><br className="hidden sm:block" /> with Video Reels
+                </h1>
+                <p className="text-xs text-slate-500 mt-1.5 max-w-md">
+                  Apartments, villas & penthouses across India — with immersive video walkthroughs and direct chat.
+                </p>
               </div>
+              <button
+                onClick={handlePostPropertyAction}
+                className="shrink-0 inline-flex items-center gap-2 px-5 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm rounded-2xl shadow-md shadow-indigo-200 transition active:scale-95 cursor-pointer"
+              >
+                <Sparkles className="w-4 h-4 text-amber-300" /> + Post Property
+              </button>
+            </div>
+
+            {/* Quick-stat chips */}
+            <div className="flex flex-wrap items-center gap-2 mt-4">
+              {[
+                { emoji: '🏠', label: 'Buy' },
+                { emoji: '🔑', label: 'Rent' },
+                { emoji: '📐', label: 'Lease' },
+                { emoji: '🎬', label: 'Video Reels' },
+                { emoji: '💬', label: 'Direct Chat' },
+                { emoji: '🏦', label: 'Home Loan' },
+              ].map(c => (
+                <span key={c.label} className="inline-flex items-center gap-1 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-[11px] font-semibold text-slate-700">
+                  {c.emoji} {c.label}
+                </span>
+              ))}
             </div>
           </div>
         </section>

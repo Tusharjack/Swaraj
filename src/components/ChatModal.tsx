@@ -94,19 +94,8 @@ export const ChatModal: React.FC<ChatModalProps> = ({
       ? `${enquiry.sender.full_name || 'Sender'}${enquiry.sender.email ? ` · ${enquiry.sender.email}` : ''}`
       : enquiry.name || otherUserId || 'Conversation';
 
-  const initialEnquiryMsg: ChatMessage = {
-    id: `initial-${enquiry.id}`,
-    created_at: enquiry.created_at,
-    enquiry_id: enquiry.id,
-    sender_id: enquiry.sender_id || otherUserId,
-    receiver_id: idsEqual(currentUser.id, otherUserId) ? (enquiry.recipient_id || otherUserId) : (enquiry.recipient_id || ''),
-    message: enquiry.message,
-    read: true
-  };
-
-  const displayMessages = messages.some(m => m.id === initialEnquiryMsg.id)
-    ? messages
-    : [initialEnquiryMsg, ...messages];
+  // Use only real messages — no synthetic initial bubble
+  const displayMessages = messages;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
@@ -137,21 +126,40 @@ export const ChatModal: React.FC<ChatModalProps> = ({
           ) : (
             displayMessages.map(msg => {
               const mine = idsEqual(msg.sender_id, currentUser.id);
-              const isInitial = msg.id.startsWith('initial-');
+              // Detect image URL in message
+              const msgImageUrl = (msg.message.trim().startsWith('https://') && (
+                msg.message.includes('cloudinary.com') ||
+                msg.message.includes('/storage/v1/object/') ||
+                /\.(jpg|jpeg|png|gif|webp)(\?|$)/i.test(msg.message)
+              )) ? msg.message.trim() : msg.message.split('\n').find(p =>
+                p.startsWith('https://') && (p.includes('cloudinary.com') || /\.(jpg|jpeg|png|gif|webp)/i.test(p))
+              );
+              const msgCaption = msgImageUrl
+                ? msg.message.split('\n').filter(p => p.trim() !== msgImageUrl.trim()).join('\n').trim()
+                : '';
+
               return (
                 <div key={msg.id} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`max-w-[80%] px-4 py-2.5 rounded-2xl text-sm shadow-sm ${
+                  <div className={`max-w-[80%] rounded-2xl text-sm shadow-sm overflow-hidden ${
                     mine
                       ? 'bg-gradient-to-br from-indigo-600 to-violet-600 text-white rounded-br-md'
                       : 'bg-white text-slate-800 border border-slate-100 rounded-bl-md'
                   }`}>
-                    {isInitial && (
-                      <div className={`text-[10px] font-bold uppercase tracking-wide mb-1 ${mine ? 'text-indigo-200' : 'text-indigo-500'}`}>
-                        Enquiry
+                    {msgImageUrl && (
+                      <img
+                        src={msgImageUrl}
+                        alt="attachment"
+                        className="w-full max-w-[280px] object-cover cursor-pointer"
+                        onClick={() => window.open(msgImageUrl, '_blank')}
+                        onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                      />
+                    )}
+                    {(msgCaption || (!msgImageUrl)) && (
+                      <div className="px-4 py-2.5">
+                        <p className="whitespace-pre-wrap leading-relaxed">{msgImageUrl ? msgCaption : msg.message}</p>
                       </div>
                     )}
-                    <p className="whitespace-pre-wrap leading-relaxed">{msg.message}</p>
-                    <div className={`text-[10px] mt-1 flex items-center gap-1 ${mine ? 'text-indigo-200 justify-end' : 'text-slate-400'}`}>
+                    <div className={`px-4 pb-2.5 text-[10px] flex items-center gap-1 ${mine ? 'text-indigo-200 justify-end' : 'text-slate-400'}`}>
                       {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       {mine && <span>· {msg.read ? '✓✓' : '✓'}</span>}
                     </div>

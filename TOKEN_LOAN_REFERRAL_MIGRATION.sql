@@ -279,3 +279,6 @@ GRANT EXECUTE ON FUNCTION public.apply_referral_code TO authenticated;
 -- DONE. All 4 tables + 4 functions created.
 -- Run this SQL, then rebuild and sync the Android app.
 -- =============================================================================
+
+
+

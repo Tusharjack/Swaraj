@@ -96,7 +96,8 @@ const AuthedProfile: React.FC<{
       group: 'My Activity',
       items: [
         { icon: <Building2 className="w-5 h-5 text-indigo-500" />, label: 'My Listings & Dashboard', tab: 'professional' },
-        { icon: <Heart className="w-5 h-5 text-rose-500" />,      label: 'Saved Properties & Reels', tab: 'saved' },
+        { icon: <Film className="w-5 h-5 text-purple-500" />,      label: 'Video Reels',             tab: 'reels' },
+        { icon: <Heart className="w-5 h-5 text-rose-500" />,       label: 'Saved Properties & Reels', tab: 'saved' },
         { icon: <MessageCircle className="w-5 h-5 text-purple-500" />, label: 'Messages & Enquiries', tab: 'chats' },
       ],
     },

@@ -53,7 +53,9 @@ export const ProfessionalDashboard: React.FC<ProfessionalDashboardProps> = ({
   };
 
   const pollEnquiries = async () => {
-    const userEnqs = await api.getEnquiriesForUser(currentUser.id);
+    const allEnqs = await api.getEnquiriesForUser(currentUser.id);
+    // Only show leads received (recipient = me), not ones I sent
+    const userEnqs = allEnqs.filter(e => e.recipient_id === currentUser.id);
     setEnquiries(prev => {
       if (JSON.stringify(prev) === JSON.stringify(userEnqs)) return prev;
       return userEnqs;

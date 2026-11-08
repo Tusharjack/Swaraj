@@ -486,7 +486,7 @@ export const ReelsFeed: React.FC<ReelsFeedProps> = ({
         onClose={() => setShareModalReel(null)}
         title={shareModalReel?.title || 'Property Reel'}
         text={shareModalReel?.caption || shareModalReel?.title}
-        url={window.location.href}
+        url="https://play.google.com/store/apps/details?id=com.swaraj.realestate&pcampaignid=web_share"
         imageUrl={shareModalReel?.thumbnail_url}
       />
     </div>

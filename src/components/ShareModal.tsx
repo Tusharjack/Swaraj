@@ -40,13 +40,19 @@ export const ShareModal: React.FC<ShareModalProps> = ({
   onClose,
   title,
   text = '',
-  url,
+  url: rawUrl,
   imageUrl
 }) => {
   const [copied, setCopied] = useState(false);
   const [instaCopied, setInstaCopied] = useState(false);
 
   if (!isOpen) return null;
+
+  // Always share the Play Store link — never localhost or internal dev URLs
+  const PLAY_STORE_URL = 'https://play.google.com/store/apps/details?id=com.swaraj.realestate&pcampaignid=web_share';
+  const url = (!rawUrl || rawUrl.startsWith('http://localhost') || rawUrl.startsWith('http://127') || rawUrl === '/')
+    ? PLAY_STORE_URL
+    : rawUrl;
 
   const fullShareText = text ? `${title} - ${text}` : title;
   const encodedText = encodeURIComponent(fullShareText);
@@ -134,20 +140,34 @@ export const ShareModal: React.FC<ShareModalProps> = ({
           </button>
         </div>
 
-        {/* Preview Card */}
-        <div className="p-4 bg-slate-50 border-b border-slate-100 flex items-center gap-3">
+        {/* Preview Card — rich thumbnail for reels/properties */}
+        <div className="border-b border-slate-100">
           {imageUrl ? (
-            <img src={imageUrl} alt={title} className="w-14 h-14 rounded-xl object-cover border border-slate-200 shrink-0" />
+            <div className="relative">
+              <img
+                src={imageUrl}
+                alt={title}
+                className="w-full h-40 object-cover"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
+              <div className="absolute bottom-0 left-0 right-0 p-3">
+                <h4 className="font-bold text-sm text-white line-clamp-1">{title}</h4>
+                {text && <p className="text-[11px] text-slate-300 line-clamp-1 mt-0.5">{text}</p>}
+                <p className="text-[10px] text-indigo-300 font-mono mt-0.5 truncate">{url}</p>
+              </div>
+            </div>
           ) : (
-            <div className="w-14 h-14 rounded-xl bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold shrink-0">
-              <Globe className="w-6 h-6" />
+            <div className="p-4 bg-slate-50 flex items-center gap-3">
+              <div className="w-14 h-14 rounded-xl bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold shrink-0">
+                <Globe className="w-6 h-6" />
+              </div>
+              <div className="overflow-hidden">
+                <h4 className="font-bold text-xs text-slate-900 truncate">{title}</h4>
+                {text && <p className="text-[11px] text-slate-500 truncate mt-0.5">{text}</p>}
+                <p className="text-[10px] text-indigo-600 font-mono truncate mt-0.5">{url}</p>
+              </div>
             </div>
           )}
-          <div className="overflow-hidden">
-            <h4 className="font-bold text-xs text-slate-900 truncate">{title}</h4>
-            {text && <p className="text-[11px] text-slate-500 truncate mt-0.5">{text}</p>}
-            <p className="text-[10px] text-indigo-600 font-mono truncate mt-0.5">{url}</p>
-          </div>
         </div>
 
         {/* Social Sharing Options Grid */}

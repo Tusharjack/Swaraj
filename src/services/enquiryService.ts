@@ -139,14 +139,19 @@ export const enquiryService = {
   }> {
     if (!ownerId) return { properties: [], enquiries: [], reels: [], totalViews: 0 };
 
-    const [props, enqs, userReels] = await Promise.all([
+    const [props, allEnqs, userReels] = await Promise.all([
       propertyService.getProperties({ ownerId }),
       this.getEnquiriesForUser(ownerId),
       reelService.getReelsForUser(ownerId)
     ]);
 
+    // Only show leads RECEIVED by this professional (recipient_id = ownerId)
+    // Exclude enquiries they sent themselves (sender_id = ownerId) — those are
+    // conversations the pro initiated and should NOT appear as "leads received"
+    const receivedEnquiries = allEnqs.filter(e => e.recipient_id === ownerId);
+
     const totalViews = props.reduce((sum, p) => sum + (p.views_count || 0), 0);
-    return { properties: props, enquiries: enqs, reels: userReels, totalViews };
+    return { properties: props, enquiries: receivedEnquiries, reels: userReels, totalViews };
   },
 
   async getAllEnquiries(): Promise<Enquiry[]> {
