@@ -172,9 +172,10 @@ export const referralService = {
       return { success: false, message: 'You cannot use your own referral code.' };
     }
 
-    // 4. Reward both users
+    // 4. Reward referrer (+50 coins).
+    //    The referred user already received 25 welcome coins from the
+    //    handle_new_user trigger — we do NOT add a duplicate 25 here.
     await tokenService.adminAdjustTokens(referrerId, 50, 'earned_referral', `Referral bonus for inviting new user`);
-    await tokenService.adminAdjustTokens(userId, 25, 'earned_referred', `Welcome bonus for using referral code ${cleanCode}`);
 
     // 5. Update referrals table
     allRefs.unshift({
@@ -190,7 +191,7 @@ export const referralService = {
     });
     setLocalState(STORAGE_KEYS.REFERRALS, allRefs);
 
-    return { success: true, message: 'Referral applied successfully! 25 bonus tokens have been added to your wallet.' };
+    return { success: true, message: 'Referral applied! 50 coins credited to your friend. You received 25 welcome coins on signup.' };
   },
 
   /** Admin: get all referrals platform-wide */

@@ -47,12 +47,16 @@ export const reelService = {
       );
     }
 
+    // Auto-expire any boosted reels whose boosted_until has passed
+    try { await supabase.rpc('expire_featured_boosted'); } catch (_e) { /* non-fatal */ }
+
     const currentUser = await authService.getCurrentUser().catch(() => null);
 
     const { data: rawReels, error } = await supabase
       .from('reels')
       .select('*, creator:profiles(*), property:properties(*)')
-      .order('created_at', { ascending: false });
+      .order('boosted', { ascending: false })   // boosted reels first
+      .order('created_at', { ascending: false }); // then newest first
 
     if (error) {
       throw new Error(`Failed to load reels: ${error.message}`);

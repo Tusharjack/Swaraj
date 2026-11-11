@@ -18,6 +18,8 @@ import { CreateReelModal } from './components/CreateReelModal';
 import { ChatModal } from './components/ChatModal';
 import { ChatInbox } from './components/ChatInbox';
 import { ReportModal } from './components/ReportModal';
+import { MfaChallengeModal } from './components/TwoFactorAuth';
+import { SetNewPasswordModal } from './components/PasswordSettings';
 import { HomeLoanPage } from './components/HomeLoanPage';
 import { ProfilePage } from './components/ProfilePage';
 import { TokenPage } from './components/TokenPage';
@@ -63,6 +65,8 @@ export function App() {
   const [isSupabaseConfigOpen, setIsSupabaseConfigOpen] = useState(false);
   const [isCreatePropertyOpen, setIsCreatePropertyOpen] = useState(false);
   const [isCreateReelOpen, setIsCreateReelOpen] = useState(false);
+  const [mfaRequired, setMfaRequired] = useState(false);
+  const [showSetPassword, setShowSetPassword] = useState(false);
 
   // TASK 6 - Chat modal state
   const [chatState, setChatState] = useState<{ open: boolean; enquiry: Enquiry | null; otherUserId: string }>({
@@ -184,6 +188,39 @@ export function App() {
     return () => clearInterval(interval);
   }, []);
 
+  // ── Auth state listener for session persistence ────────────────────────────
+  // Reacts to login/logout/token-refresh events (including cross-tab) so the
+  // UI stays in sync. Fixes the ghost-session and stale-login bugs where
+  // getSession() hadn't finished restoring from storage on first render.
+  useEffect(() => {
+    // Fallback: the password-reset email link lands with #...type=recovery in
+    // the URL hash — open the "set new password" screen for it.
+    if (typeof window !== 'undefined' && window.location.hash.includes('type=recovery')) {
+      setShowSetPassword(true);
+    }
+
+    const unsubscribe = api.onAuthStateChange((event, _session) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        // User opened the reset link and has a temporary recovery session
+        setShowSetPassword(true);
+      } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'INITIAL_SESSION') {
+        // Reload user data when a session becomes available
+        api.getCurrentUser().then(user => {
+          if (user) {
+            setCurrentUser(user);
+            // Refresh profiles + saved items in the background
+            api.getAllUsers().then(setAllProfiles).catch(() => {});
+            api.getSavedPropertyIds().then(setSavedPropertyIds).catch(() => {});
+          }
+        }).catch(() => {});
+      } else if (event === 'SIGNED_OUT') {
+        setCurrentUser(null);
+        setSavedPropertyIds([]);
+      }
+    });
+    return () => { unsubscribe(); };
+  }, []);
+
   useEffect(() => {
     api.getProperties(filters).then(props => {
       setProperties(prev => {
@@ -192,6 +229,26 @@ export function App() {
       });
     });
   }, [filters]);
+
+  // ── Device push registration (FCM/APNs) — no-op on web ─────────────────────
+  // Runs once per signed-in session. The in-app NotificationCentre works
+  // independently of this; push only adds OS-level delivery.
+  useEffect(() => {
+    if (currentUser) {
+      api.registerForPush().catch(() => { /* plugin absent or denied — ignore */ });
+    }
+  }, [currentUser?.id]);
+
+  // ── 2FA gate — prompt for the authenticator code when the session is aal1
+  //     but the account requires aal2 (2FA enabled). ─────────────────────────
+  useEffect(() => {
+    if (!currentUser) { setMfaRequired(false); return; }
+    api.getAssuranceLevel()
+      .then(({ currentLevel, nextLevel }) => {
+        setMfaRequired(currentLevel === 'aal1' && nextLevel === 'aal2');
+      })
+      .catch(() => {});
+  }, [currentUser?.id]);
 
   const handleSelectProperty = (property: Property) => {
     setSelectedProperty(property);
@@ -373,6 +430,8 @@ export function App() {
                 filters={filters}
                 onFilterChange={setFilters}
                 totalResults={properties.length}
+                currentUser={currentUser}
+                onOpenAuth={() => setIsAuthOpen(true)}
               />
 
               {/* Property Cards Grid */}
@@ -685,6 +744,19 @@ export function App() {
         isOpen={isSupabaseConfigOpen}
         onClose={() => setIsSupabaseConfigOpen(false)}
       />
+
+      <MfaChallengeModal
+        isOpen={mfaRequired}
+        onVerified={() => { setMfaRequired(false); loadData(); }}
+        onCancel={handleLogout}
+      />
+
+      <SetNewPasswordModal
+        isOpen={showSetPassword}
+        onClose={() => setShowSetPassword(false)}
+        onDone={() => { setShowSetPassword(false); loadData(); }}
+      />
+
 
       {currentUser && (
         <>

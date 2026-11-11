@@ -230,6 +230,88 @@ export const authService = {
     localStorage.removeItem(STORAGE_KEYS.CURRENT_USER);
   },
 
+  /**
+   * Subscribe to Supabase auth state changes (login, logout, token refresh,
+   * session restore across tabs).  Returns an unsubscribe function.
+   *
+   * This fixes session-persistence issues where a user who was logged in
+   * on a previous visit sees a blank screen because the initial
+   * `getSession()` call hadn't finished restoring the session from
+   * storage before the component rendered.
+   */
+  onAuthStateChange(
+    callback: (event: string, session: any) => void
+  ): () => void {
+    if (!isSupabaseConfigured) {
+      return () => {}; // no-op in local-only mode
+    }
+
+    const { data } = supabase.auth.onAuthStateChange((event, session) => {
+      // Clear stale local user on explicit sign-out
+      if (event === 'SIGNED_OUT') {
+        localStorage.removeItem(STORAGE_KEYS.CURRENT_USER);
+      }
+      callback(event, session);
+    });
+
+    // Return the unsubscribe function
+    return () => data.subscription.unsubscribe();
+  },
+
+  // ── Two-Factor Authentication (TOTP via Supabase Auth MFA) ────────────────
+  // Requires the "Authenticator app (TOTP)" MFA factor to be enabled in
+  // Supabase Dashboard → Authentication → Multi-Factor Auth.
+
+  /** Lists enrolled MFA factors (e.g. authenticator apps). */
+  async listMfaFactors(): Promise<{ id: string; friendly_name?: string; status: string }[]> {
+    if (!isSupabaseConfigured) return [];
+    const { data, error } = await supabase.auth.mfa.listFactors();
+    if (error) throw new Error(`Failed to load 2FA factors: ${error.message}`);
+    return (data?.totp ?? []) as { id: string; friendly_name?: string; status: string }[];
+  },
+
+  /** Starts TOTP enrolment — returns the secret + QR code to scan. */
+  async enrollTotp(friendlyName = 'IndoProperty Authenticator') {
+    if (!isSupabaseConfigured) throw new Error('Supabase is not configured.');
+    const { data, error } = await supabase.auth.mfa.enroll({ factorType: 'totp', friendlyName });
+    if (error) throw new Error(`Could not start 2FA setup: ${error.message}`);
+    return {
+      factorId: data.id,
+      qrCode: data.totp.qr_code,   // SVG data URI
+      secret: data.totp.secret,    // manual entry key
+    };
+  },
+
+  /** Verifies the 6-digit code scanned from the authenticator app. */
+  async verifyTotp(factorId: string, code: string): Promise<void> {
+    if (!isSupabaseConfigured) throw new Error('Supabase is not configured.');
+    const { data: challenge, error: chErr } = await supabase.auth.mfa.challenge({ factorId });
+    if (chErr) throw new Error(`2FA challenge failed: ${chErr.message}`);
+    const { error: vErr } = await supabase.auth.mfa.verify({
+      factorId, challengeId: challenge.id, code,
+    });
+    if (vErr) throw new Error(`Invalid code. Please try again. (${vErr.message})`);
+  },
+
+  /** Removes a 2FA factor. */
+  async unenrollTotp(factorId: string): Promise<void> {
+    if (!isSupabaseConfigured) throw new Error('Supabase is not configured.');
+    const { error } = await supabase.auth.mfa.unenroll({ factorId });
+    if (error) throw new Error(`Failed to disable 2FA: ${error.message}`);
+  },
+
+  /**
+   * Returns the current vs required assurance level.
+   * nextLevel 'aal2' with currentLevel 'aal1' means the user still needs to
+   * complete the 2FA challenge before the session is fully elevated.
+   */
+  async getAssuranceLevel(): Promise<{ currentLevel: string | null; nextLevel: string | null }> {
+    if (!isSupabaseConfigured) return { currentLevel: null, nextLevel: null };
+    const { data, error } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+    if (error) return { currentLevel: null, nextLevel: null };
+    return { currentLevel: data.currentLevel, nextLevel: data.nextLevel };
+  },
+
   async uploadAvatar(imageFile: File): Promise<string> {
     return uploadFileToSupabase('avatars', imageFile);
   },
@@ -322,6 +404,51 @@ export const authService = {
     const cached = getLocalState<Profile[]>(STORAGE_KEYS.PROFILES, []);
     const filtered = cached.filter(u => u.id !== userId);
     setLocalState(STORAGE_KEYS.PROFILES, filtered);
+  },
+
+  /**
+   * Sends a password-reset email through Supabase Auth.
+   * The email contains a secure link that returns the user to the app so they
+   * can set a new password.
+   */
+  async sendPasswordReset(email: string): Promise<{ success: boolean; error?: string }> {
+    const cleanEmail = (email || '').trim();
+    if (!cleanEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+      return { success: false, error: 'Please enter a valid email address.' };
+    }
+    if (!isSupabaseConfigured) {
+      return { success: false, error: 'Password reset is only available when Supabase is configured.' };
+    }
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(cleanEmail, {
+        redirectTo: typeof window !== 'undefined' ? window.location.origin : undefined,
+      });
+      if (error) return { success: false, error: error.message };
+      return { success: true };
+    } catch (err: any) {
+      return { success: false, error: err?.message || 'Could not send the reset email. Please try again.' };
+    }
+  },
+
+  /**
+   * Updates the signed-in user's password.
+   * Used both for the in-app "Change Password" settings section and for the
+   * recovery flow after the user clicks the reset link in their email.
+   */
+  async updatePassword(newPassword: string): Promise<{ success: boolean; error?: string }> {
+    if (!newPassword || newPassword.length < 6) {
+      return { success: false, error: 'Password must be at least 6 characters long.' };
+    }
+    if (!isSupabaseConfigured) {
+      return { success: false, error: 'Password change is only available when Supabase is configured.' };
+    }
+    try {
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      if (error) return { success: false, error: error.message };
+      return { success: true };
+    } catch (err: any) {
+      return { success: false, error: err?.message || 'Could not update your password. Please try again.' };
+    }
   },
 
   async resetPlatformData(): Promise<void> {

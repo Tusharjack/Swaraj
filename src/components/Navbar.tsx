@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Building2, Film, Shield, LogIn, Sparkles, MessageCircle, Coins, Gift, Landmark, ChevronDown, Heart } from 'lucide-react';
 import type { Profile } from '../types/database';
 import { api } from '../services/api';
+import { NotificationBell } from './NotificationCentre';
 
 export type AppTab = 'properties' | 'reels' | 'chats' | 'saved' | 'professional' | 'admin' | 'tokens' | 'homeloan' | 'referral';
 
@@ -126,8 +127,14 @@ export const Navbar: React.FC<NavbarProps> = ({ currentTab, onTabChange, current
           </div>
         </nav>
 
-        {/* Right — token balance chip + profile */}
+        {/* Right — notifications + token balance chip + profile */}
         <div className="flex items-center gap-2 shrink-0">
+          <NotificationBell
+            currentUser={currentUser}
+            onOpenAuth={onOpenAuth}
+            onNavigate={(tab) => onTabChange(tab as AppTab)}
+          />
+
           {currentUser && (
             <button
               onClick={() => onTabChange('tokens')}

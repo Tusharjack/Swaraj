@@ -1,6 +1,7 @@
-import React from 'react';
-import { Search, MapPin, RotateCcw } from 'lucide-react';
-import type { PropertyType, ListingType } from '../types/database';
+import React, { useState } from 'react';
+import { Search, MapPin, RotateCcw, BellPlus, Check } from 'lucide-react';
+import type { PropertyType, ListingType, Profile } from '../types/database';
+import { api } from '../services/api';
 
 export interface FilterState {
   searchQuery: string;
@@ -16,9 +17,32 @@ interface PropertySearchFilterProps {
   filters: FilterState;
   onFilterChange: (filters: FilterState) => void;
   totalResults: number;
+  currentUser?: Profile | null;
+  onOpenAuth?: () => void;
 }
 
-export const PropertySearchFilter: React.FC<PropertySearchFilterProps> = ({ filters, onFilterChange, totalResults }) => {
+export const PropertySearchFilter: React.FC<PropertySearchFilterProps> = ({
+  filters, onFilterChange, totalResults, currentUser, onOpenAuth,
+}) => {
+  const [savedSearch, setSavedSearch] = useState(false);
+
+  const handleSaveSearch = async () => {
+    if (!currentUser) { onOpenAuth?.(); return; }
+    try {
+      await api.saveSavedPreferences(currentUser.id, {
+        city: filters.city !== 'all' ? filters.city : null,
+        property_type: filters.propertyType !== 'all' ? filters.propertyType : null,
+        listing_type: filters.listingType !== 'all' ? filters.listingType : null,
+        bedrooms: filters.bedrooms !== 'any' ? Number(filters.bedrooms) : null,
+        min_price: filters.minPrice > 0 ? filters.minPrice : null,
+        max_price: filters.maxPrice < 100000000 ? filters.maxPrice : null,
+        notify_matches: true,
+      });
+      setSavedSearch(true);
+      setTimeout(() => setSavedSearch(false), 2500);
+    } catch { /* ignore */ }
+  };
+
   const handleReset = () => {
     onFilterChange({
       searchQuery: '',
@@ -117,6 +141,17 @@ export const PropertySearchFilter: React.FC<PropertySearchFilterProps> = ({ filt
           <span className="font-semibold text-slate-500">
             Showing <strong className="text-slate-900">{totalResults}</strong> properties
           </span>
+          <button
+            onClick={handleSaveSearch}
+            className={`flex items-center gap-1 font-bold px-3 py-1.5 rounded-xl border transition cursor-pointer ${
+              savedSearch
+                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                : 'bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100'
+            }`}
+          >
+            {savedSearch ? <Check className="w-3.5 h-3.5" /> : <BellPlus className="w-3.5 h-3.5" />}
+            {savedSearch ? 'Search saved' : 'Save search'}
+          </button>
           <button
             onClick={handleReset}
             className="flex items-center gap-1 text-slate-500 hover:text-indigo-600 font-medium transition"

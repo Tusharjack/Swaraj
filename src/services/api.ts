@@ -4,6 +4,8 @@ import { reelService } from './reelService';
 import { enquiryService } from './enquiryService';
 import { chatService } from './chatService';
 import { reportService } from './reportService';
+import { notificationService } from './notificationService';
+import { pushService } from './pushService';
 import { tokenService } from './tokenService';
 import { loanService } from './loanService';
 import { referralService } from './referralService';
@@ -27,6 +29,14 @@ export const api = {
   deleteUser: authService.deleteUser.bind(authService),
   resetPlatformData: authService.resetPlatformData.bind(authService),
   deleteAccount: authService.deleteAccount.bind(authService),
+  sendPasswordReset: authService.sendPasswordReset.bind(authService),
+  updatePassword: authService.updatePassword.bind(authService),
+  onAuthStateChange: authService.onAuthStateChange.bind(authService),
+  listMfaFactors: authService.listMfaFactors.bind(authService),
+  enrollTotp: authService.enrollTotp.bind(authService),
+  verifyTotp: authService.verifyTotp.bind(authService),
+  unenrollTotp: authService.unenrollTotp.bind(authService),
+  getAssuranceLevel: authService.getAssuranceLevel.bind(authService),
 
   // Properties
   getProperties: propertyService.getProperties.bind(propertyService),
@@ -79,6 +89,17 @@ export const api = {
   getReports: reportService.getAllReports.bind(reportService),
   updateReportStatus: reportService.updateReportStatus.bind(reportService),
 
+  // ── Notifications ─────────────────────────────────────────────────────────
+  getNotifications:        notificationService.getNotifications.bind(notificationService),
+  getUnreadNotificationCount: notificationService.getUnreadCount.bind(notificationService),
+  markNotificationRead:    notificationService.markAsRead.bind(notificationService),
+  markAllNotificationsRead: notificationService.markAllAsRead.bind(notificationService),
+  deleteNotification:      notificationService.deleteNotification.bind(notificationService),
+  subscribeToNotifications: notificationService.subscribeToNotifications.bind(notificationService),
+  getSavedPreferences:     notificationService.getPreferences.bind(notificationService),
+  saveSavedPreferences:    notificationService.savePreferences.bind(notificationService),
+  registerForPush:         pushService.register.bind(pushService),
+
   // Diagnostics & Errors
   getLastApiError: getLastError,
   setLastApiError: setLastError,
@@ -90,6 +111,12 @@ export const api = {
   getAllWallets:           tokenService.getAllWallets.bind(tokenService),
   adminAdjustTokens:      tokenService.adminAdjustTokens.bind(tokenService),
   spendTokensForPromotion:tokenService.spendTokensForPromotion.bind(tokenService),
+  giftCoins:              tokenService.giftCoins.bind(tokenService),
+  redeemForFeature:       tokenService.redeemForFeature.bind(tokenService),
+  redeemForBoost:         tokenService.redeemForBoost.bind(tokenService),
+  getPlatformSettings:    tokenService.getPlatformSettings.bind(tokenService),
+  updatePlatformSettings:  tokenService.updatePlatformSettings.bind(tokenService),
+  expireFeaturedBoosted:  tokenService.expireFeaturedBoosted.bind(tokenService),
 
   // ── Home Loan ─────────────────────────────────────────────────────────────
   applyForLoan:              loanService.applyForLoan.bind(loanService),

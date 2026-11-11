@@ -1,5 +1,5 @@
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
-import type { TokenTransaction, TokenWallet, TokenTransactionType } from '../types/database';
+import type { TokenTransaction, TokenWallet, TokenTransactionType, PlatformSettings } from '../types/database';
 import { STORAGE_KEYS, getLocalState, setLocalState } from './storage';
 
 function getDefaultWallet(userId: string): TokenWallet {
@@ -256,5 +256,326 @@ export const tokenService = {
       reference_id: propertyId
     });
     setLocalState(STORAGE_KEYS.TOKEN_TRANSACTIONS, txns);
+  },
+
+  // ──────────────────────────────────────────────────────────────────────
+  // PLATFORM SETTINGS — admin-configurable pricing for redemptions
+  // ──────────────────────────────────────────────────────────────────────
+
+  /** Get the admin-configurable pricing for featuring properties & boosting reels */
+  async getPlatformSettings(): Promise<PlatformSettings> {
+    const DEFAULTS: PlatformSettings = {
+      id: 1,
+      feature_property_cost: 50,
+      feature_property_duration_days: 7,
+      boost_reel_cost: 30,
+      boost_reel_duration_days: 7,
+      updated_at: new Date().toISOString(),
+    };
+
+    if (isSupabaseConfigured) {
+      try {
+        const { data, error } = await supabase
+          .from('platform_settings')
+          .select('*')
+          .eq('id', 1)
+          .maybeSingle();
+
+        if (!error && data) return data as PlatformSettings;
+      } catch (err) {
+        console.warn('[Token] platform_settings query error, using defaults:', err);
+      }
+    }
+
+    return DEFAULTS;
+  },
+
+  /** Admin: update platform pricing settings */
+  async updatePlatformSettings(updates: Partial<PlatformSettings>): Promise<void> {
+    if (isSupabaseConfigured) {
+      const { error } = await supabase
+        .from('platform_settings')
+        .update({ ...updates, updated_at: new Date().toISOString() })
+        .eq('id', 1);
+      if (error) throw new Error(`Failed to update settings: ${error.message}`);
+    }
+  },
+
+  // ──────────────────────────────────────────────────────────────────────
+  // GIFT COINS — peer-to-peer transfer via atomic Supabase RPC
+  // ──────────────────────────────────────────────────────────────────────
+
+  /**
+   * Gift coins to a friend using their registered email address.
+   * Uses the `gift_coins` PostgreSQL RPC for an atomic, race-safe transfer
+   * that validates the receiver, checks sender balance, prevents self-transfer,
+   * and records both transactions + an in-app notification.
+   *
+   * Returns { success, receiverName, amount } on success.
+   * Throws an Error with a human-readable message on any failure.
+   */
+  async giftCoins(
+    receiverEmail: string,
+    amount: number
+  ): Promise<{ success: boolean; receiverName: string; amount: number }> {
+    // ── Client-side validation (fast feedback before network round-trip) ──
+    const cleanEmail = (receiverEmail || '').trim().toLowerCase();
+    if (!cleanEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+      throw new Error('Please enter your friend\u2019s registered email address.');
+    }
+    if (!amount || amount <= 0 || !Number.isInteger(amount)) {
+      throw new Error('Please enter a valid whole-number coin amount.');
+    }
+
+    let sessionUser: any = null;
+    if (isSupabaseConfigured) {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        sessionUser = session?.user;
+      } catch (_e) {}
+    }
+
+    if (!sessionUser) {
+      throw new Error('You must be signed in to gift coins.');
+    }
+
+    // Check balance before calling RPC (better UX error)
+    const wallet = await this.getMyWallet();
+    if (!wallet || wallet.balance < amount) {
+      throw new Error(`Insufficient balance. You have ${wallet?.balance ?? 0} coins but tried to gift ${amount}.`);
+    }
+
+    if (isSupabaseConfigured && sessionUser) {
+      const { data, error } = await supabase.rpc('gift_coins', {
+        p_receiver_email: cleanEmail,
+        p_amount: amount,
+      });
+
+      if (error) {
+        // Supabase surfaces RAISE EXCEPTION messages in error.message
+        throw new Error(error.message);
+      }
+
+      const result = (data || {}) as { success?: boolean; receiver_name?: string; amount?: number };
+      return {
+        success: true,
+        receiverName: result.receiver_name || 'your friend',
+        amount: result.amount ?? amount,
+      };
+    }
+
+    // ── Local fallback (non-Supabase dev mode) ──────────────────────────
+    const currentProfile = getLocalState<any>(STORAGE_KEYS.CURRENT_USER, null);
+    const senderId = sessionUser?.id || currentProfile?.id;
+    const profiles = getLocalState<any[]>(STORAGE_KEYS.PROFILES, []);
+    const receiver = profiles.find(
+      (p) => (p.email || '').trim().toLowerCase() === cleanEmail
+    );
+
+    if (!receiver) throw new Error(`No registered user found with email ${cleanEmail}.`);
+    if (receiver.id === senderId) throw new Error('You cannot gift coins to yourself.');
+
+    const wallets = getLocalState<Record<string, TokenWallet>>(STORAGE_KEYS.TOKEN_WALLETS, {});
+    const senderWallet = wallets[senderId] || getDefaultWallet(senderId);
+    if (senderWallet.balance < amount) {
+      throw new Error(`Insufficient balance. You have ${senderWallet.balance} coins but tried to gift ${amount}.`);
+    }
+
+    wallets[senderId] = {
+      ...senderWallet,
+      balance: senderWallet.balance - amount,
+      total_spent: senderWallet.total_spent + amount,
+      updated_at: new Date().toISOString(),
+    };
+
+    const receiverWallet = wallets[receiver.id] || getDefaultWallet(receiver.id);
+    wallets[receiver.id] = {
+      ...receiverWallet,
+      balance: receiverWallet.balance + amount,
+      total_earned: receiverWallet.total_earned + amount,
+      updated_at: new Date().toISOString(),
+    };
+    setLocalState(STORAGE_KEYS.TOKEN_WALLETS, wallets);
+
+    const txns = getLocalState<TokenTransaction[]>(STORAGE_KEYS.TOKEN_TRANSACTIONS, []);
+    txns.unshift(
+      {
+        id: `tx-gift-out-${Date.now()}`,
+        created_at: new Date().toISOString(),
+        user_id: senderId,
+        amount: -amount,
+        type: 'gifted_sent',
+        description: `Gifted ${amount} coins to ${receiver.full_name}`,
+        reference_id: receiver.id,
+      },
+      {
+        id: `tx-gift-in-${Date.now()}`,
+        created_at: new Date().toISOString(),
+        user_id: receiver.id,
+        amount,
+        type: 'gifted_received',
+        description: `Received ${amount} coins as a gift from ${currentProfile?.full_name || 'a friend'}`,
+        reference_id: senderId,
+      }
+    );
+    setLocalState(STORAGE_KEYS.TOKEN_TRANSACTIONS, txns);
+
+    // Local notification
+    const notifs = getLocalState<any[]>(STORAGE_KEYS.NOTIFICATIONS, []);
+    notifs.unshift({
+      id: `notif-gift-${Date.now()}`,
+      created_at: new Date().toISOString(),
+      user_id: receiver.id,
+      title: '🎁 Coins Received!',
+      message: `You received ${amount} Coins from ${currentProfile?.full_name || 'a friend'}!\nतुम्हाला ${currentProfile?.full_name || 'एक मित्र'} यांच्याकडून ${amount} कॉइन्स गिफ्ट मिळाले आहेत!`,
+      type: 'system',
+      read: false,
+    });
+    setLocalState(STORAGE_KEYS.NOTIFICATIONS, notifs);
+
+    return { success: true, receiverName: receiver.full_name || 'your friend', amount };
+  },
+
+  // ──────────────────────────────────────────────────────────────────────
+  // USE COINS — redeem coins to feature listings & boost reels
+  // ──────────────────────────────────────────────────────────────────────
+
+  /**
+   * Redeem coins to feature a property listing.
+   * Calls the `redeem_coins_for_feature` RPC which validates ownership,
+   * deducts coins atomically, and sets featured + auto-expiry.
+   */
+  async redeemForFeature(propertyId: string): Promise<{ cost: number; durationDays: number }> {
+    let sessionUser: any = null;
+    if (isSupabaseConfigured) {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        sessionUser = session?.user;
+      } catch (_e) {}
+    }
+
+    if (!sessionUser) throw new Error('You must be signed in to feature a listing.');
+
+    if (isSupabaseConfigured && sessionUser) {
+      const { data, error } = await supabase.rpc('redeem_coins_for_feature', {
+        p_property_id: propertyId,
+      });
+
+      if (error) throw new Error(error.message);
+
+      const result = (data || {}) as { success?: boolean; cost?: number; duration_days?: number };
+      return { cost: result.cost ?? 50, durationDays: result.duration_days ?? 7 };
+    }
+
+    // ── Local fallback ────────────────────────────────────────────────────
+    const currentProfile = getLocalState<any>(STORAGE_KEYS.CURRENT_USER, null);
+    const userId = sessionUser?.id || currentProfile?.id;
+    if (!userId) throw new Error('You must be signed in to feature a listing.');
+
+    const settings = await this.getPlatformSettings();
+    const cost = settings.feature_property_cost;
+    const wallet = await this.getMyWallet();
+    if (!wallet || wallet.balance < cost) {
+      throw new Error(`Insufficient coins. You need ${cost} coins but have ${wallet?.balance ?? 0}.`);
+    }
+
+    const wallets = getLocalState<Record<string, TokenWallet>>(STORAGE_KEYS.TOKEN_WALLETS, {});
+    const w = wallets[userId] || getDefaultWallet(userId);
+    wallets[userId] = {
+      ...w,
+      balance: Math.max(0, w.balance - cost),
+      total_spent: w.total_spent + cost,
+      updated_at: new Date().toISOString(),
+    };
+    setLocalState(STORAGE_KEYS.TOKEN_WALLETS, wallets);
+
+    const txns = getLocalState<TokenTransaction[]>(STORAGE_KEYS.TOKEN_TRANSACTIONS, []);
+    txns.unshift({
+      id: `tx-feature-${Date.now()}`,
+      created_at: new Date().toISOString(),
+      user_id: userId,
+      amount: -cost,
+      type: 'spent_promotion',
+      description: `Featured property listing for ${settings.feature_property_duration_days} days`,
+      reference_id: propertyId,
+    });
+    setLocalState(STORAGE_KEYS.TOKEN_TRANSACTIONS, txns);
+
+    return { cost, durationDays: settings.feature_property_duration_days };
+  },
+
+  /**
+   * Redeem coins to boost a property reel.
+   * Calls the `redeem_coins_for_boost` RPC which validates ownership,
+   * deducts coins atomically, and sets boosted + auto-expiry.
+   */
+  async redeemForBoost(reelId: string): Promise<{ cost: number; durationDays: number }> {
+    let sessionUser: any = null;
+    if (isSupabaseConfigured) {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        sessionUser = session?.user;
+      } catch (_e) {}
+    }
+
+    if (!sessionUser) throw new Error('You must be signed in to boost a reel.');
+
+    if (isSupabaseConfigured && sessionUser) {
+      const { data, error } = await supabase.rpc('redeem_coins_for_boost', {
+        p_reel_id: reelId,
+      });
+
+      if (error) throw new Error(error.message);
+
+      const result = (data || {}) as { success?: boolean; cost?: number; duration_days?: number };
+      return { cost: result.cost ?? 30, durationDays: result.duration_days ?? 7 };
+    }
+
+    // ── Local fallback ────────────────────────────────────────────────────
+    const currentProfile = getLocalState<any>(STORAGE_KEYS.CURRENT_USER, null);
+    const userId = sessionUser?.id || currentProfile?.id;
+    if (!userId) throw new Error('You must be signed in to boost a reel.');
+
+    const settings = await this.getPlatformSettings();
+    const cost = settings.boost_reel_cost;
+    const wallet = await this.getMyWallet();
+    if (!wallet || wallet.balance < cost) {
+      throw new Error(`Insufficient coins. You need ${cost} coins but have ${wallet?.balance ?? 0}.`);
+    }
+
+    const wallets = getLocalState<Record<string, TokenWallet>>(STORAGE_KEYS.TOKEN_WALLETS, {});
+    const w = wallets[userId] || getDefaultWallet(userId);
+    wallets[userId] = {
+      ...w,
+      balance: Math.max(0, w.balance - cost),
+      total_spent: w.total_spent + cost,
+      updated_at: new Date().toISOString(),
+    };
+    setLocalState(STORAGE_KEYS.TOKEN_WALLETS, wallets);
+
+    const txns = getLocalState<TokenTransaction[]>(STORAGE_KEYS.TOKEN_TRANSACTIONS, []);
+    txns.unshift({
+      id: `tx-boost-${Date.now()}`,
+      created_at: new Date().toISOString(),
+      user_id: userId,
+      amount: -cost,
+      type: 'spent_boost',
+      description: `Boosted reel for ${settings.boost_reel_duration_days} days`,
+      reference_id: reelId,
+    });
+    setLocalState(STORAGE_KEYS.TOKEN_TRANSACTIONS, txns);
+
+    return { cost, durationDays: settings.boost_reel_duration_days };
+  },
+
+  /** Call the expire_featured_boosted RPC to auto-expire featured listings & boosted reels */
+  async expireFeaturedBoosted(): Promise<void> {
+    if (isSupabaseConfigured) {
+      try {
+        await supabase.rpc('expire_featured_boosted');
+      } catch (_e) {
+        // Non-fatal — expiry also happens on next query
+      }
+    }
   },
 };

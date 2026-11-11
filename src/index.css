@@ -28,6 +28,23 @@
   scroll-snap-stop: always;
 }
 
+/* Smooth, momentum-based vertical scrolling for the Reels feed */
+.reels-scroll {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+  scroll-behavior: smooth;
+}
+
+/* Premium elevation + hover lift for cards */
+.card-premium {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.card-premium:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 32px -12px rgba(15, 23, 42, 0.18), 0 4px 12px -6px rgba(15, 23, 42, 0.1);
+}
+
+
 /* Backdrop blur & glassmorphism utilities */
 .glass-panel {
   background: rgba(255, 255, 255, 0.85);

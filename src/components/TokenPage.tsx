@@ -14,9 +14,10 @@ import {
   Coins, TrendingUp, TrendingDown, RefreshCw, Copy, Share2,
   CheckCircle2, AlertTriangle, ArrowUpRight, ArrowDownRight,
   Star, Zap, Gift, Users, ChevronDown, ChevronUp, LogIn,
+  Send, Rocket, X, Building2, Film, Sparkles,
 } from 'lucide-react';
 import { api } from '../services/api';
-import type { Profile, TokenTransaction, TokenWallet, Referral } from '../types/database';
+import type { Profile, TokenTransaction, TokenWallet, Referral, Property, Reel, PlatformSettings } from '../types/database';
 
 interface TokenPageProps {
   currentUser: Profile | null;
@@ -25,12 +26,15 @@ interface TokenPageProps {
 
 // ─── Transaction type meta ────────────────────────────────────────────────────
 const TX_META: Record<string, { label: string; creditColor: string; bg: string; icon: React.ReactNode }> = {
-  earned_referral:  { label: 'Referral Reward',    creditColor: 'text-emerald-600', bg: 'bg-emerald-50',  icon: <ArrowUpRight   className="w-4 h-4 text-emerald-500" /> },
-  earned_referred:  { label: 'Welcome Bonus',       creditColor: 'text-emerald-600', bg: 'bg-emerald-50',  icon: <ArrowUpRight   className="w-4 h-4 text-emerald-500" /> },
-  earned_admin:     { label: 'Admin Reward',         creditColor: 'text-indigo-600',  bg: 'bg-indigo-50',   icon: <Star           className="w-4 h-4 text-indigo-500" /> },
-  spent_promotion:  { label: 'Property Promotion',   creditColor: 'text-rose-600',    bg: 'bg-rose-50',     icon: <ArrowDownRight className="w-4 h-4 text-rose-500" /> },
-  spent_featured:   { label: 'Featured Reel',        creditColor: 'text-rose-600',    bg: 'bg-rose-50',     icon: <ArrowDownRight className="w-4 h-4 text-rose-500" /> },
-  deducted_admin:   { label: 'Admin Deduction',       creditColor: 'text-rose-600',    bg: 'bg-rose-50',     icon: <ArrowDownRight className="w-4 h-4 text-rose-500" /> },
+  earned_referral:   { label: 'Referral Reward',    creditColor: 'text-emerald-600', bg: 'bg-emerald-50',  icon: <ArrowUpRight   className="w-4 h-4 text-emerald-500" /> },
+  earned_referred:   { label: 'Welcome Bonus',       creditColor: 'text-emerald-600', bg: 'bg-emerald-50',  icon: <ArrowUpRight   className="w-4 h-4 text-emerald-500" /> },
+  earned_admin:      { label: 'Admin Reward',         creditColor: 'text-indigo-600',  bg: 'bg-indigo-50',   icon: <Star           className="w-4 h-4 text-indigo-500" /> },
+  gifted_received:   { label: 'Gift Received',       creditColor: 'text-emerald-600', bg: 'bg-emerald-50',  icon: <Gift           className="w-4 h-4 text-emerald-500" /> },
+  gifted_sent:       { label: 'Gift Sent',             creditColor: 'text-rose-600',    bg: 'bg-rose-50',     icon: <Gift           className="w-4 h-4 text-rose-500" /> },
+  spent_promotion:   { label: 'Featured Listing',     creditColor: 'text-rose-600',    bg: 'bg-rose-50',     icon: <ArrowDownRight className="w-4 h-4 text-rose-500" /> },
+  spent_featured:    { label: 'Featured Reel',         creditColor: 'text-rose-600',    bg: 'bg-rose-50',     icon: <ArrowDownRight className="w-4 h-4 text-rose-500" /> },
+  spent_boost:       { label: 'Boosted Reel',          creditColor: 'text-rose-600',    bg: 'bg-rose-50',     icon: <Rocket         className="w-4 h-4 text-rose-500" /> },
+  deducted_admin:    { label: 'Admin Deduction',       creditColor: 'text-rose-600',    bg: 'bg-rose-50',     icon: <ArrowDownRight className="w-4 h-4 text-rose-500" /> },
 };
 
 // ─── Referral status badge colours ───────────────────────────────────────────
@@ -89,6 +93,25 @@ export const TokenPage: React.FC<TokenPageProps> = ({ currentUser, onOpenAuth })
   const [applyMsg,  setApplyMsg]  = useState<{ ok: boolean; msg: string } | null>(null);
   const [showTxns,  setShowTxns]  = useState(false);    // collapse history by default on mobile
 
+  // ── Gift Coins modal state ──────────────────────────────────────────────
+  const [showGiftModal, setGiftModal]     = useState(false);
+  const [giftEmail,     setGiftEmail]     = useState('');
+  const [giftAmount,    setGiftAmount]    = useState<number>(10);
+  const [giftStep,      setGiftStep]      = useState<'input' | 'confirm'>('input');
+  const [giftLoading,   setGiftLoading]   = useState(false);
+  const [giftError,     setGiftError]     = useState('');
+  const [giftSuccess,   setGiftSuccess]   = useState('');
+
+  // ── Use Coins modal state ────────────────────────────────────────────────
+  const [showUseModal,   setShowUseModal]   = useState(false);
+  const [useTab,         setUseTab]         = useState<'feature' | 'boost'>('feature');
+  const [userProperties,  setUserProperties]  = useState<Property[]>([]);
+  const [userReels,       setUserReels]       = useState<Reel[]>([]);
+  const [platformSettings, setPlatformSettings] = useState<PlatformSettings | null>(null);
+  const [redeemLoading,   setRedeemLoading]   = useState<string | null>(null);
+  const [redeemSuccess,   setRedeemSuccess]   = useState('');
+  const [useError,        setUseError]        = useState('');
+
   const loadAll = useCallback(async () => {
     if (!currentUser) return;
     setLoading(true);
@@ -111,6 +134,101 @@ export const TokenPage: React.FC<TokenPageProps> = ({ currentUser, onOpenAuth })
   }, [currentUser?.id]);
 
   useEffect(() => { loadAll(); }, [loadAll]);
+
+  // ── Gift Coins handlers ──────────────────────────────────────────────────
+  const openGiftModal = () => {
+    setGiftModal(true);
+    setGiftStep('input');
+    setGiftEmail('');
+    setGiftAmount(10);
+    setGiftError('');
+    setGiftSuccess('');
+  };
+
+  const handleGiftSubmit = async () => {
+    setGiftError('');
+    if (!giftEmail.trim()) { setGiftError('Please enter your friend\u2019s registered email address.'); return; }
+    if (!giftAmount || giftAmount <= 0) { setGiftError('Please enter a valid coin amount.'); return; }
+    if (balance < giftAmount) { setGiftError(`Insufficient balance. You have ${balance} coins.`); return; }
+    setGiftStep('confirm'); // move to confirmation step
+  };
+
+  const handleGiftConfirm = async () => {
+    setGiftLoading(true);
+    setGiftError('');
+    try {
+      const result = await api.giftCoins(giftEmail.trim(), giftAmount);
+      setGiftSuccess(`🎉 ${result.amount} coins sent to ${result.receiverName}!`);
+      setGiftStep('input');
+      setGiftModal(false);
+      loadAll(); // refresh wallet + transactions
+    } catch (err: any) {
+      setGiftError(err.message || 'Failed to send coins. Please try again.');
+      setGiftStep('input'); // go back to input to fix errors
+    } finally {
+      setGiftLoading(false);
+    }
+  };
+
+  // ── Use Coins handlers ───────────────────────────────────────────────────
+  const openUseModal = async () => {
+    setShowUseModal(true);
+    setUseError('');
+    setRedeemSuccess('');
+    setUseTab('feature');
+    try {
+      const [dash, settings] = await Promise.all([
+        api.getProfessionalDashboard(currentUser!.id),
+        api.getPlatformSettings(),
+      ]);
+      setUserProperties(dash.properties || []);
+      setUserReels(dash.reels || []);
+      setPlatformSettings(settings);
+    } catch (e) {
+      console.error('[TokenPage] Use Coins load error:', e);
+      setUseError('Could not load your listings. Please try again.');
+    }
+  };
+
+  const handleRedeemFeature = async (prop: Property) => {
+    if (prop.featured) return;
+    const cost = platformSettings?.feature_property_cost ?? 50;
+    const days = platformSettings?.feature_property_duration_days ?? 7;
+    if (!confirm(`Feature "${prop.title}" for ${cost} coins (${days} days)? This will boost your listing's visibility across IndoProperty.`)) return;
+    setRedeemLoading(prop.id);
+    setUseError('');
+    try {
+      await api.redeemForFeature(prop.id);
+      setUserProperties(prev => prev.map(p => p.id === prop.id ? { ...p, featured: true } : p));
+      setRedeemSuccess(`🎉 "${prop.title}" is now featured for ${days} days!`);
+      setTimeout(() => setRedeemSuccess(''), 4000);
+      loadAll(); // refresh wallet balance
+    } catch (err: any) {
+      setUseError(err.message || 'Failed to feature listing.');
+    } finally {
+      setRedeemLoading(null);
+    }
+  };
+
+  const handleRedeemBoost = async (reel: Reel) => {
+    if (reel.boosted) return;
+    const cost = platformSettings?.boost_reel_cost ?? 30;
+    const days = platformSettings?.boost_reel_duration_days ?? 7;
+    if (!confirm(`Boost "${reel.title}" for ${cost} coins (${days} days)? This will increase your reel's visibility in the feed.`)) return;
+    setRedeemLoading(reel.id);
+    setUseError('');
+    try {
+      await api.redeemForBoost(reel.id);
+      setUserReels(prev => prev.map(r => r.id === reel.id ? { ...r, boosted: true } : r));
+      setRedeemSuccess(`🚀 "${reel.title}" is now boosted for ${days} days!`);
+      setTimeout(() => setRedeemSuccess(''), 4000);
+      loadAll(); // refresh wallet balance
+    } catch (err: any) {
+      setUseError(err.message || 'Failed to boost reel.');
+    } finally {
+      setRedeemLoading(null);
+    }
+  };
 
   if (!currentUser) return <GuestTokens onOpenAuth={onOpenAuth} />;
 
@@ -221,6 +339,22 @@ export const TokenPage: React.FC<TokenPageProps> = ({ currentUser, onOpenAuth })
             </div>
           </div>
         </div>
+      </div>
+
+      {/* ── Gift Coins & Use Coins action buttons ── */}
+      <div className="grid grid-cols-2 gap-3">
+        <button
+          onClick={openGiftModal}
+          className="flex items-center justify-center gap-2 py-3.5 bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-bold text-sm rounded-2xl shadow-md shadow-emerald-200 active:scale-95 transition cursor-pointer"
+        >
+          <Gift className="w-5 h-5" /> Gift Coins
+        </button>
+        <button
+          onClick={openUseModal}
+          className="flex items-center justify-center gap-2 py-3.5 bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-bold text-sm rounded-2xl shadow-md shadow-indigo-200 active:scale-95 transition cursor-pointer"
+        >
+          <Rocket className="w-5 h-5" /> Use Coins
+        </button>
       </div>
 
       {/* ── Refer a Friend ── */}
@@ -386,7 +520,7 @@ export const TokenPage: React.FC<TokenPageProps> = ({ currentUser, onOpenAuth })
           </div>
           <div>
             <h3 className="font-bold text-slate-900 text-sm">Have a Referral Code?</h3>
-            <p className="text-[11px] text-slate-400">Enter a friend's code to earn 25 welcome tokens</p>
+            <p className="text-[11px] text-slate-400">Enter a friend's code — they earn 50 coins, you get 25 welcome coins</p>
           </div>
         </div>
 
@@ -516,6 +650,319 @@ export const TokenPage: React.FC<TokenPageProps> = ({ currentUser, onOpenAuth })
           </>
         )}
       </div>
+
+      {/* ════════════════════════════════════════════════════════════════════ */}
+      {/* GIFT COINS MODAL                                                      */}
+      {/* ════════════════════════════════════════════════════════════════════ */}
+      {showGiftModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl border border-slate-100 overflow-hidden flex flex-col max-h-[90vh]">
+            {/* Header */}
+            <div className="p-5 bg-gradient-to-r from-emerald-500 to-teal-600 text-white flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-white/20 rounded-xl"><Gift className="w-5 h-5" /></div>
+                <div>
+                  <h3 className="font-bold text-base">Gift Coins to a Friend</h3>
+                  <p className="text-xs text-emerald-100">Transfer coins instantly — free of charge</p>
+                </div>
+              </div>
+              <button onClick={() => setGiftModal(false)} className="text-white/70 hover:text-white transition"><X className="w-5 h-5" /></button>
+            </div>
+
+            {/* Body */}
+            <div className="p-5 space-y-4 overflow-y-auto flex-1">
+              {/* Balance display */}
+              <div className="bg-amber-50 border border-amber-200 rounded-2xl p-3 flex items-center justify-between">
+                <span className="text-xs font-semibold text-amber-800">Your Balance</span>
+                <span className="text-lg font-black text-amber-700 flex items-center gap-1">
+                  <Coins className="w-4 h-4" /> {balance.toLocaleString()}
+                </span>
+              </div>
+
+              {giftStep === 'input' ? (
+                <>
+                  {/* Email input */}
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                      Friend's Registered Email Address
+                    </label>
+                    <input
+                      type="email"
+                      value={giftEmail}
+                      onChange={e => setGiftEmail(e.target.value)}
+                      placeholder="friend@example.com"
+                      className="w-full px-4 py-3 rounded-2xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    />
+                    <p className="text-[11px] text-slate-400 mt-1">Your friend must be registered on IndoProperty.</p>
+                  </div>
+
+                  {/* Amount input */}
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                      Coin Amount
+                    </label>
+                    <input
+                      type="number"
+                      value={giftAmount}
+                      onChange={e => setGiftAmount(Math.max(1, parseInt(e.target.value) || 0))}
+                      min={1}
+                      max={balance}
+                      className="w-full px-4 py-3 rounded-2xl border border-slate-300 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    />
+                    {/* Quick amount buttons */}
+                    <div className="flex gap-2 mt-2">
+                      {[10, 25, 50, 100].map(amt => (
+                        <button
+                          key={amt}
+                          type="button"
+                          onClick={() => setGiftAmount(amt)}
+                          disabled={amt > balance}
+                          className={`flex-1 py-1.5 rounded-xl text-xs font-bold transition ${
+                            giftAmount === amt
+                              ? 'bg-emerald-600 text-white'
+                              : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                          } disabled:opacity-30`}
+                        >
+                          {amt}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {giftError && (
+                    <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs font-medium text-rose-700 flex items-start gap-2">
+                      <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-rose-500" /> {giftError}
+                    </div>
+                  )}
+
+                  <button
+                    onClick={handleGiftSubmit}
+                    disabled={giftLoading}
+                    className="w-full py-3.5 bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-bold text-sm rounded-2xl shadow-md shadow-emerald-200 active:scale-95 transition flex items-center justify-center gap-2 disabled:opacity-50"
+                  >
+                    <Send className="w-4 h-4" /> Review Gift
+                  </button>
+                </>
+              ) : (
+                /* ── Confirmation step ── */
+                <div className="space-y-4 text-center py-2">
+                  <div className="w-16 h-16 rounded-full bg-emerald-100 flex items-center justify-center mx-auto">
+                    <Gift className="w-8 h-8 text-emerald-600" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-slate-500">You are about to send</p>
+                    <p className="text-3xl font-black text-slate-900 mt-1">{giftAmount} coins</p>
+                    <p className="text-sm text-slate-500 mt-1">to <span className="font-bold text-slate-700">{giftEmail}</span></p>
+                  </div>
+                  <div className="bg-amber-50 border border-amber-200 rounded-2xl p-3 text-xs text-amber-800 font-medium">
+                    After sending, you'll have <span className="font-black">{(balance - giftAmount).toLocaleString()}</span> coins left.
+                  </div>
+                  {giftError && (
+                    <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs font-medium text-rose-700 flex items-start gap-2">
+                      <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-rose-500" /> {giftError}
+                    </div>
+                  )}
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => setGiftStep('input')}
+                      disabled={giftLoading}
+                      className="flex-1 py-3 bg-slate-100 text-slate-700 font-bold text-sm rounded-2xl hover:bg-slate-200 transition"
+                    >
+                      Back
+                    </button>
+                    <button
+                      onClick={handleGiftConfirm}
+                      disabled={giftLoading}
+                      className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm rounded-2xl shadow-md shadow-emerald-200 active:scale-95 transition flex items-center justify-center gap-2 disabled:opacity-50"
+                    >
+                      {giftLoading ? (
+                        <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      ) : (
+                        <><Send className="w-4 h-4" /> Confirm & Send</>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Gift success toast */}
+      {giftSuccess && (
+        <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 px-6 py-3 bg-emerald-600 text-white font-bold text-sm rounded-2xl shadow-xl flex items-center gap-2 animate-in fade-in slide-in-from-bottom-4 duration-300">
+          <CheckCircle2 className="w-5 h-5" /> {giftSuccess}
+        </div>
+      )}
+
+      {/* ════════════════════════════════════════════════════════════════════ */}
+      {/* USE COINS MODAL                                                       */}
+      {/* ════════════════════════════════════════════════════════════════════ */}
+      {showUseModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl border border-slate-100 overflow-hidden flex flex-col max-h-[90vh]">
+            {/* Header */}
+            <div className="p-5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-white/20 rounded-xl"><Rocket className="w-5 h-5" /></div>
+                <div>
+                  <h3 className="font-bold text-base">Use Coins</h3>
+                  <p className="text-xs text-indigo-100">Feature listings & boost reels for more visibility</p>
+                </div>
+              </div>
+              <button onClick={() => setShowUseModal(false)} className="text-white/70 hover:text-white transition"><X className="w-5 h-5" /></button>
+            </div>
+
+            {/* Balance + tab selector */}
+            <div className="px-5 pt-4 shrink-0 space-y-3">
+              <div className="bg-amber-50 border border-amber-200 rounded-2xl p-3 flex items-center justify-between">
+                <span className="text-xs font-semibold text-amber-800">Available Balance</span>
+                <span className="text-lg font-black text-amber-700 flex items-center gap-1">
+                  <Coins className="w-4 h-4" /> {balance.toLocaleString()}
+                </span>
+              </div>
+
+              <div className="flex bg-slate-100 p-1 rounded-2xl text-xs font-bold">
+                <button
+                  onClick={() => setUseTab('feature')}
+                  className={`flex-1 py-2.5 rounded-xl transition flex items-center justify-center gap-1.5 ${useTab === 'feature' ? 'bg-white text-indigo-600 shadow-sm font-black' : 'text-slate-600'}`}
+                >
+                  <Building2 className="w-4 h-4" /> Feature Listing
+                </button>
+                <button
+                  onClick={() => setUseTab('boost')}
+                  className={`flex-1 py-2.5 rounded-xl transition flex items-center justify-center gap-1.5 ${useTab === 'boost' ? 'bg-white text-purple-600 shadow-sm font-black' : 'text-slate-600'}`}
+                >
+                  <Film className="w-4 h-4" /> Boost Reel
+                </button>
+              </div>
+            </div>
+
+            {/* Body */}
+            <div className="p-5 overflow-y-auto flex-1 space-y-3">
+              {redeemSuccess && (
+                <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-2xl text-xs font-bold text-emerald-700 flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" /> {redeemSuccess}
+                </div>
+              )}
+              {useError && (
+                <div className="p-3 bg-rose-50 border border-rose-200 rounded-2xl text-xs font-medium text-rose-700 flex items-start gap-2">
+                  <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-rose-500" /> {useError}
+                </div>
+              )}
+
+              {useTab === 'feature' ? (
+                /* ── Feature Property tab ── */
+                <>
+                  <div className="flex items-center justify-between text-xs text-slate-500">
+                    <span>Cost: <strong className="text-slate-700">{platformSettings?.feature_property_cost ?? 50} coins</strong> per listing</span>
+                    <span>Duration: <strong className="text-slate-700">{platformSettings?.feature_property_duration_days ?? 7} days</strong></span>
+                  </div>
+                  {userProperties.length === 0 ? (
+                    <div className="text-center py-8 text-slate-400">
+                      <Building2 className="w-10 h-10 text-slate-200 mx-auto mb-2" />
+                      <p className="text-sm font-semibold">No properties yet</p>
+                      <p className="text-xs mt-0.5">Add a property listing to feature it.</p>
+                    </div>
+                  ) : (
+                    userProperties.map(prop => (
+                      <div key={prop.id} className="flex items-center gap-3 p-3 rounded-2xl border border-slate-200 hover:border-indigo-300 transition">
+                        <img
+                          src={prop.media?.[0]?.url || prop.images?.[0] || 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=200'}
+                          alt={prop.title}
+                          className="w-14 h-14 rounded-xl object-cover border shrink-0"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <p className="font-bold text-sm text-slate-800 truncate">{prop.title}</p>
+                            {prop.featured && (
+                              <span className="px-1.5 py-0.5 bg-amber-500 text-white text-[9px] font-black uppercase rounded flex items-center gap-0.5 shrink-0">
+                                <Star className="w-2.5 h-2.5 fill-white" /> Featured
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-[11px] text-slate-400">{prop.location}, {prop.city}</p>
+                        </div>
+                        {prop.featured ? (
+                          <span className="px-3 py-1.5 bg-amber-50 border border-amber-200 text-amber-700 text-[10px] font-bold rounded-lg flex items-center gap-1 shrink-0">
+                            <Star className="w-3 h-3 fill-amber-500 text-amber-500" /> Active
+                          </span>
+                        ) : (
+                          <button
+                            onClick={() => handleRedeemFeature(prop)}
+                            disabled={redeemLoading === prop.id}
+                            className="shrink-0 px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl shadow-sm transition active:scale-95 flex items-center gap-1.5 disabled:opacity-50"
+                          >
+                            {redeemLoading === prop.id ? (
+                              <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                            ) : (
+                              <><Sparkles className="w-3.5 h-3.5" /> Feature ({platformSettings?.feature_property_cost ?? 50})</>
+                            )}
+                          </button>
+                        )}
+                      </div>
+                    ))
+                  )}
+                </>
+              ) : (
+                /* ── Boost Reel tab ── */
+                <>
+                  <div className="flex items-center justify-between text-xs text-slate-500">
+                    <span>Cost: <strong className="text-slate-700">{platformSettings?.boost_reel_cost ?? 30} coins</strong> per reel</span>
+                    <span>Duration: <strong className="text-slate-700">{platformSettings?.boost_reel_duration_days ?? 7} days</strong></span>
+                  </div>
+                  {userReels.length === 0 ? (
+                    <div className="text-center py-8 text-slate-400">
+                      <Film className="w-10 h-10 text-slate-200 mx-auto mb-2" />
+                      <p className="text-sm font-semibold">No reels yet</p>
+                      <p className="text-xs mt-0.5">Upload a reel to boost it in the feed.</p>
+                    </div>
+                  ) : (
+                    userReels.map(reel => (
+                      <div key={reel.id} className="flex items-center gap-3 p-3 rounded-2xl border border-slate-200 hover:border-purple-300 transition">
+                        <img
+                          src={reel.thumbnail_url || 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=200'}
+                          alt={reel.title}
+                          className="w-14 h-14 rounded-xl object-cover border shrink-0"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <p className="font-bold text-sm text-slate-800 truncate">{reel.title}</p>
+                            {reel.boosted && (
+                              <span className="px-1.5 py-0.5 bg-purple-500 text-white text-[9px] font-black uppercase rounded flex items-center gap-0.5 shrink-0">
+                                <Rocket className="w-2.5 h-2.5" /> Boosted
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-[11px] text-slate-400">❤️ {reel.likes_count} · 👁 {reel.views_count}</p>
+                        </div>
+                        {reel.boosted ? (
+                          <span className="px-3 py-1.5 bg-purple-50 border border-purple-200 text-purple-700 text-[10px] font-bold rounded-lg flex items-center gap-1 shrink-0">
+                            <Rocket className="w-3 h-3 text-purple-500" /> Active
+                          </span>
+                        ) : (
+                          <button
+                            onClick={() => handleRedeemBoost(reel)}
+                            disabled={redeemLoading === reel.id}
+                            className="shrink-0 px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold rounded-xl shadow-sm transition active:scale-95 flex items-center gap-1.5 disabled:opacity-50"
+                          >
+                            {redeemLoading === reel.id ? (
+                              <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                            ) : (
+                              <><Rocket className="w-3.5 h-3.5" /> Boost ({platformSettings?.boost_reel_cost ?? 30})</>
+                            )}
+                          </button>
+                        )}
+                      </div>
+                    ))
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

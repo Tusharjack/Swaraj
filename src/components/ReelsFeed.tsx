@@ -12,20 +12,25 @@ import { ShareModal } from './ShareModal';
 // play() call may be silently caught; users can always tap the screen to play.
 export const ReelVideoPlayer: React.FC<{
   reel: Reel;
+  shouldLoad: boolean;
   onVideoRef: (el: HTMLVideoElement | null) => void;
   onClick: () => void;
   onDoubleClick: () => void;
-}> = React.memo(({ reel, onVideoRef, onClick, onDoubleClick }) => {
-  const [videoSrc, setVideoSrc] = useState<string>(reel.video_url);
+}> = React.memo(({ reel, shouldLoad, onVideoRef, onClick, onDoubleClick }) => {
+  const [videoSrc, setVideoSrc] = useState<string>(reel.video_url?.startsWith('idb://') ? '' : reel.video_url);
   const clickTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Lazy loading: only fetch the video source once this reel (or a neighbour)
+  // is near the viewport. Far-away reels show their poster image only — this
+  // dramatically cuts bandwidth and speeds up the first paint of the feed.
   useEffect(() => {
+    if (!shouldLoad) return;
     if (reel.video_url?.startsWith('idb://')) {
       resolveMediaUrl(reel.video_url).then(resolved => setVideoSrc(resolved));
     } else {
       setVideoSrc(reel.video_url);
     }
-  }, [reel.video_url]);
+  }, [reel.video_url, shouldLoad]);
 
   const handleClick = () => {
     if (clickTimeoutRef.current) {
@@ -43,18 +48,19 @@ export const ReelVideoPlayer: React.FC<{
   return (
     <video
       ref={onVideoRef}
-      src={videoSrc}
+      src={shouldLoad ? videoSrc : undefined}
       poster={reel.thumbnail_url}
       loop
       playsInline
-      preload="auto"
+      preload={shouldLoad ? 'auto' : 'none'}
       onClick={handleClick}
       className="w-full h-full object-cover cursor-pointer select-none"
     />
   );
 }, (prevProps, nextProps) =>
   prevProps.reel.id === nextProps.reel.id &&
-  prevProps.reel.video_url === nextProps.reel.video_url
+  prevProps.reel.video_url === nextProps.reel.video_url &&
+  prevProps.shouldLoad === nextProps.shouldLoad
 );
 
 // ─── Props ────────────────────────────────────────────────────────────────────
@@ -219,7 +225,7 @@ export const ReelsFeed: React.FC<ReelsFeedProps> = ({
       </div>
 
       {/* Vertical Snap Scroll — fills full screen height */}
-      <div className="w-full h-full overflow-y-scroll snap-y snap-mandatory no-scrollbar">
+      <div className="w-full h-full overflow-y-scroll snap-y snap-mandatory no-scrollbar reels-scroll">
         {reels.length === 0 ? (
           <div className="w-full h-full flex flex-col items-center justify-center p-6 text-center text-white bg-slate-950 space-y-4">
             <div className="p-5 bg-gradient-to-tr from-amber-500 via-rose-500 to-purple-600 rounded-full shadow-2xl shadow-rose-500/40 animate-pulse">
@@ -262,6 +268,7 @@ export const ReelsFeed: React.FC<ReelsFeedProps> = ({
                 {/* Video */}
                 <ReelVideoPlayer
                   reel={reel}
+                  shouldLoad={Math.abs(idx - activeReelIdx) <= 1}
                   onVideoRef={(el) => { videoRefs.current[reel.id] = el; }}
                   onClick={() => {
                     const el = videoRefs.current[reel.id];

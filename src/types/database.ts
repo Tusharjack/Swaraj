@@ -52,6 +52,7 @@ export interface Property {
   status: PropertyStatus;
   owner_id: string;
   featured: boolean;
+  featured_until?: string; // ISO timestamp — featured auto-expires after this
   views_count: number;
   amenities: string[];
   images?: string[]; // Supabase column; media[] is the joined property_media rows
@@ -88,6 +89,8 @@ export interface Reel {
   shares_count: number;
   views_count: number;
   status: ReelStatus;
+  boosted?: boolean;        // admin/owner-boosted for higher feed visibility
+  boosted_until?: string;   // ISO timestamp — boost auto-expires after this
   creator?: Profile;
   property?: Property;
   // Client-side flags — not stored in DB
@@ -129,7 +132,7 @@ export interface Notification {
   user_id: string;
   title: string;
   message: string;
-  type: 'enquiry' | 'like' | 'comment' | 'follow' | 'system';
+  type: 'enquiry' | 'like' | 'comment' | 'follow' | 'system' | 'message' | 'match' | 'account';
   read: boolean;
   link_url?: string;
 }
@@ -162,11 +165,14 @@ export interface ChatMessage {
 
 export type TokenTransactionType =
   | 'earned_referral'      // tokens earned for referring a user
-  | 'earned_referred'      // tokens earned by the referred user on signup
+  | 'earned_referred'      // welcome tokens earned on signup (via trigger)
   | 'earned_admin'         // manually awarded by admin
-  | 'spent_promotion'      // spent to promote a property listing
-  | 'spent_featured'       // spent to feature a reel
-  | 'deducted_admin';      // manually deducted by admin
+  | 'spent_promotion'      // spent to feature a property listing
+  | 'spent_featured'       // spent to feature a reel (legacy)
+  | 'spent_boost'          // spent to boost a property reel
+  | 'deducted_admin'       // manually deducted by admin
+  | 'gifted_sent'          // coins sent to a friend via gift
+  | 'gifted_received';    // coins received as a gift from a friend
 
 export interface TokenTransaction {
   id: string;
@@ -185,6 +191,19 @@ export interface TokenWallet {
   balance: number;
   total_earned: number;
   total_spent: number;
+  updated_at: string;
+}
+
+/**
+ * Admin-configurable pricing for coin redemptions.
+ * Stored as a single row (id = 1) in the platform_settings table.
+ */
+export interface PlatformSettings {
+  id: number;
+  feature_property_cost: number;
+  feature_property_duration_days: number;
+  boost_reel_cost: number;
+  boost_reel_duration_days: number;
   updated_at: string;
 }
 

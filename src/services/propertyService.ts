@@ -59,6 +59,9 @@ export const propertyService = {
       );
     }
 
+    // Auto-expire any featured listings whose featured_until has passed
+    try { await supabase.rpc('expire_featured_boosted'); } catch (_e) { /* non-fatal */ }
+
     let query = supabase
       .from('properties')
       .select('*, owner:profiles(*), media:property_media(*)');
@@ -99,7 +102,9 @@ export const propertyService = {
       query = query.gte('bedrooms', Number(filters.bedrooms));
     }
 
-    const { data, error } = await query.order('created_at', { ascending: false });
+    const { data, error } = await query
+      .order('featured', { ascending: false })    // featured listings first
+      .order('created_at', { ascending: false });
 
     if (error) {
       throw new Error(`Failed to load properties: ${error.message}`);

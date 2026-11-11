@@ -33,6 +33,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [errorMsg, setErrorMsg] = useState('');
   const [loading, setLoading] = useState(false);
   const [needsEmailConfirmation, setNeedsEmailConfirmation] = useState(false);
+  const [resetSent, setResetSent] = useState(false);
+  const [resetMsg, setResetMsg] = useState('');
+  const [resetLoading, setResetLoading] = useState(false);
 
   useEffect(() => {
     // Check for referral code in URL query params (?ref=IP-XXXXXX)
@@ -52,6 +55,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     }
   }, [initialRole, isOpen]);
 
+  // Clear errors & stale fields whenever the mode changes (login <-> signup)
+  // or the modal is re-opened, so users don't see stale error messages.
+  useEffect(() => {
+    setErrorMsg('');
+    setNeedsEmailConfirmation(false);
+    setResetSent(false);
+  }, [mode, isOpen]);
+
   if (!isOpen) return null;
 
   const isAdminMode = role === 'admin';
@@ -65,11 +76,62 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     setErrorMsg('');
   };
 
+  // Map common Supabase auth errors to user-friendly messages
+  const friendlyAuthError = (raw: string): string => {
+    const e = raw.toLowerCase();
+    if (e.includes('invalid login credentials')) return 'Incorrect email or password. Please check and try again.';
+    if (e.includes('email not confirmed')) return 'Please confirm your email first — check your inbox (and spam folder) for the verification link, then sign in.';
+    if (e.includes('user already registered')) return 'An account with this email already exists. Please sign in instead.';
+    if (e.includes('password should be at least')) return 'Password must be at least 6 characters long.';
+    if (e.includes('unable to validate email address')) return 'Please enter a valid email address.';
+    if (e.includes('rate limit') || e.includes('too many')) return 'Too many attempts. Please wait a moment and try again.';
+    if (e.includes('network') || e.includes('fetch')) return 'Network error — please check your internet connection and try again.';
+    return raw;
+  };
+
+  // Basic email format check
+  const isValidEmail = (val: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val.trim());
+
+  // "Forgot password?" — sends a Supabase password-reset email
+  const handleForgotPassword = async () => {
+    if (!isValidEmail(email)) {
+      setErrorMsg('Enter your account email above, then tap “Forgot password?”.');
+      return;
+    }
+    setResetLoading(true);
+    setErrorMsg('');
+    try {
+      const { success, error } = await api.sendPasswordReset(email.trim());
+      if (success) {
+        setResetMsg(`If an account exists for ${email.trim()}, a password reset link is on its way. Check your inbox and spam folder.`);
+        setResetSent(true);
+      } else {
+        setErrorMsg(friendlyAuthError(error || 'Could not send the reset email. Please try again.'));
+      }
+    } finally {
+      setResetLoading(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg('');
-    if (!email || !password) {
+
+    // ── Validation ────────────────────────────────────────────────────────
+    if (!email.trim() || !password) {
       setErrorMsg('Please enter your email and password.');
+      return;
+    }
+    if (!isValidEmail(email)) {
+      setErrorMsg('Please enter a valid email address (e.g. you@example.com).');
+      return;
+    }
+    if (password.length < 6) {
+      setErrorMsg('Password must be at least 6 characters.');
+      return;
+    }
+    if (mode === 'signup' && !fullName.trim()) {
+      setErrorMsg('Please enter your full name.');
       return;
     }
 
@@ -77,22 +139,20 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
     try {
       if (mode === 'login' || isAdminMode) {
-        const { profile, error } = await api.login(email, password, role);
-        if (error) setErrorMsg(error);
-        else if (profile) {
+        const { profile, error } = await api.login(email.trim(), password, role);
+        if (error) {
+          setErrorMsg(friendlyAuthError(error));
+        } else if (profile) {
           onAuthSuccess(profile);
           onClose();
+        } else {
+          setErrorMsg('Login failed — no profile returned. Please try again.');
         }
       } else if (mode === 'signup') {
-        if (!fullName) {
-          setErrorMsg('Please enter your full name.');
-          setLoading(false);
-          return;
-        }
         const result = await api.signUp({
-          email,
+          email: email.trim(),
           password,
-          fullName,
+          fullName: fullName.trim(),
           role: 'professional',
           professionalType: professionalType,
           agencyName: agencyName,
@@ -103,8 +163,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           setNeedsEmailConfirmation(true);
           return;
         }
-        if (result.error) setErrorMsg(result.error);
-        else if (result.profile) {
+        if (result.error) {
+          setErrorMsg(friendlyAuthError(result.error));
+        } else if (result.profile) {
           // If a referral code was provided, apply it for bonus tokens
           if (referralCode.trim()) {
             try {
@@ -118,7 +179,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         }
       }
     } catch (err: any) {
-      setErrorMsg(err.message || 'Authentication error');
+      setErrorMsg(friendlyAuthError(err.message || 'Authentication error. Please try again.'));
     } finally {
       setLoading(false);
     }
@@ -235,10 +296,20 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       <p className="font-bold">{errorMsg}</p>
                       {isEmailUnconfirmed && !isAdminMode && (
                         <p className="mt-1 text-[11px] opacity-90 leading-relaxed">
-                          💡 <strong>Fix in 1 step:</strong> Open Supabase Dashboard &gt; Authentication &gt; Providers &gt; Email &gt; Turn OFF <strong>"Confirm email"</strong> to allow instant sign-in.
+                          💡 Check your inbox for the confirmation link and click it, then try signing in again. Can't find it? Check your spam folder.
                         </p>
                       )}
                     </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Password-reset email sent banner */}
+              {resetSent && (
+                <div className="mb-4 p-3 rounded-xl text-xs font-medium border bg-emerald-50 border-emerald-200 text-emerald-800">
+                  <div className="flex items-start gap-2">
+                    <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5 text-emerald-500" />
+                    <p>{resetMsg}</p>
                   </div>
                 </div>
               )}
@@ -341,11 +412,23 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
                 {/* PASSWORD FIELD */}
                 <div>
-                  <label className={`block text-xs font-semibold uppercase tracking-wider mb-1 ${
-                    isAdminMode ? 'text-purple-300' : 'text-slate-700'
-                  }`}>
-                    {isAdminMode ? 'Master Security Password' : 'Password'}
-                  </label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className={`block text-xs font-semibold uppercase tracking-wider ${
+                      isAdminMode ? 'text-purple-300' : 'text-slate-700'
+                    }`}>
+                      {isAdminMode ? 'Master Security Password' : 'Password'}
+                    </label>
+                    {!isAdminMode && (
+                      <button
+                        type="button"
+                        onClick={handleForgotPassword}
+                        disabled={resetLoading}
+                        className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 transition disabled:opacity-50 cursor-pointer"
+                      >
+                        {resetLoading ? 'Sending…' : 'Forgot password?'}
+                      </button>
+                    )}
+                  </div>
                   <div className="relative">
                     <Lock className={`w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 ${
                       isAdminMode ? 'text-purple-400' : 'text-slate-400'
@@ -433,7 +516,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                         <Gift className="w-3.5 h-3.5 text-indigo-600" /> Have a Referral Code?
                       </label>
                       <span className="text-[10px] font-extrabold text-emerald-600 bg-emerald-100/80 px-2 py-0.5 rounded-full">
-                        +25 Welcome Tokens
+                        Friend earns 50 🪙
                       </span>
                     </div>
                     <input
@@ -445,7 +528,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     />
                     {referralCode && (
                       <p className="text-[10px] text-indigo-700 font-medium mt-1">
-                        🎁 Code recognized! You'll receive 25 welcome tokens automatically upon registration.
+                        🎁 Code recognized! Your friend will earn 50 coins when you sign up. You get 25 welcome coins automatically.
                       </p>
                     )}
                   </div>
