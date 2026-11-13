@@ -314,6 +314,7 @@ const AuthedProfile: React.FC<{
       items: [
         { icon: <Settings className="w-5 h-5 text-slate-500" />, label: 'Edit Profile & Settings', action: onOpenProfile },
         ...(currentUser.role === 'admin' ? [{ icon: <ShieldCheck className="w-5 h-5 text-purple-500" />, label: 'Admin Console', tab: 'admin' }] : []),
+        { icon: <LogOut className="w-5 h-5 text-amber-500" />, label: 'Sign Out', action: () => setShowSignOutConfirm(true) },
         { icon: <Trash2 className="w-5 h-5 text-rose-500" />, label: 'Delete Account', action: () => { setDeleteError(null); setShowDeleteAccount(true); } },
       ],
     },

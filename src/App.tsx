@@ -15,7 +15,6 @@ import { ProfileModal } from './components/ProfileModal';
 import { SupabaseConfigModal } from './components/SupabaseConfigModal';
 import { CreatePropertyModal } from './components/CreatePropertyModal';
 import { CreateReelModal } from './components/CreateReelModal';
-import { ChatModal } from './components/ChatModal';
 import { ChatInbox } from './components/ChatInbox';
 import { ReportModal } from './components/ReportModal';
 import { MfaChallengeModal } from './components/TwoFactorAuth';
@@ -66,17 +65,45 @@ export function App() {
   const [isCreatePropertyOpen, setIsCreatePropertyOpen] = useState(false);
   const [isCreateReelOpen, setIsCreateReelOpen] = useState(false);
   const [mfaRequired, setMfaRequired] = useState(false);
-  const [showSetPassword, setShowSetPassword] = useState(false);
+  const [showSetPassword, setShowSetPassword] = useState(() =>
+    typeof window !== 'undefined' &&
+    (window.location.hash.includes('type=recovery') ||
+      window.location.search.includes('type=recovery'))
+  );
 
-  // TASK 6 - Chat modal state
-  const [chatState, setChatState] = useState<{ open: boolean; enquiry: Enquiry | null; otherUserId: string }>({
-    open: false, enquiry: null, otherUserId: ''
-  });
-  const handleOpenChat = (enquiry: Enquiry, otherUserId: string) => {
-    setChatState({ open: true, enquiry, otherUserId: otherUserId || enquiry.sender_id || enquiry.recipient_id });
-    if (enquiryTarget) setEnquiryTarget(null);
+  // TASK 6 - Chat state. Chat is NOT a floating popup — opening a conversation
+  // navigates to the Messages tab and shows it inline, like Instagram DMs.
+  const [activeChat, setActiveChat] = useState<Enquiry | null>(null);
+  const [isInChatThread, setIsInChatThread] = useState(false);
+
+  const handleTabNavigate = (tab: AppTab, meta?: any) => {
+    if (meta?.propertyId) {
+      const prop = properties.find(p => p.id === meta.propertyId);
+      if (prop) setSelectedProperty(prop);
+    }
+    if (meta?.enquiryId) {
+      api.getEnquiriesForUser(currentUser?.id || '').then(enqs => {
+        const found = enqs.find(e => e.id === meta.enquiryId);
+        if (found) {
+          setActiveChat(found);
+          setIsInChatThread(true);
+        }
+      }).catch(() => {});
+    }
+    if (tab !== 'chats') {
+      setIsInChatThread(false);
+    }
+    setCurrentTab(tab);
   };
-  const handleCloseChat = () => setChatState(prev => ({ ...prev, open: false }));
+
+  const handleOpenChat = (enquiry: Enquiry, _otherUserId?: string) => {
+    if (!currentUser) { setIsAuthOpen(true); return; }
+    setEnquiryTarget(null);
+    setSelectedProperty(null);
+    setActiveChat(enquiry);
+    setIsInChatThread(true);
+    setCurrentTab('chats');
+  };
 
   const handleOpenDirectChat = async (recipientId: string, property?: Property, reel?: Reel) => {
     if (!currentUser) {
@@ -306,12 +333,14 @@ export function App() {
   const savedPropertiesList = properties.filter(p => savedPropertyIds.includes(p.id));
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans selection:bg-indigo-500 selection:text-white pb-16 md:pb-6">
+    <div className={`min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans selection:bg-indigo-500 selection:text-white ${
+      currentTab === 'reels' ? 'pb-0 md:pb-0' : (currentTab === 'chats' && isInChatThread) ? 'pb-0 md:pb-0' : 'pb-16 md:pb-6'
+    }`}>
       {/* Top Navbar — hidden on mobile in Reels tab for immersive full-screen Instagram Reels experience */}
       {currentTab !== 'reels' && (
         <Navbar
           currentTab={currentTab}
-          onTabChange={setCurrentTab}
+          onTabChange={handleTabNavigate}
           currentUser={currentUser}
           onOpenAuth={() => {
             if (currentUser) setIsProfileOpen(true);
@@ -324,7 +353,7 @@ export function App() {
         <div className="hidden md:block">
           <Navbar
             currentTab={currentTab}
-            onTabChange={setCurrentTab}
+            onTabChange={handleTabNavigate}
             currentUser={currentUser}
             onOpenAuth={() => {
               if (currentUser) setIsProfileOpen(true);
@@ -420,6 +449,17 @@ export function App() {
             </div>
           )}
         </main>
+      ) : currentTab === 'chats' ? (
+        <main className="flex-1 w-full flex flex-col min-h-0 bg-white sm:bg-slate-50">
+          <ChatInbox
+            currentUser={currentUser}
+            onOpenAuth={() => setIsAuthOpen(true)}
+            onOpenProperty={handleSelectProperty}
+            activeEnquiry={activeChat}
+            onActiveEnquiryConsumed={() => setActiveChat(null)}
+            onChatSelectedChange={setIsInChatThread}
+          />
+        </main>
       ) : (
         <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
           {/* TAB 1: PROPERTIES DISCOVERY & SEARCH */}
@@ -475,15 +515,6 @@ export function App() {
                 </div>
               )}
             </div>
-          )}
-
-          {/* TAB 2: INSTAGRAM-STYLE DIRECT MESSAGES INBOX */}
-          {currentTab === 'chats' && (
-            <ChatInbox
-              currentUser={currentUser}
-              onOpenAuth={() => setIsAuthOpen(true)}
-              onOpenProperty={handleSelectProperty}
-            />
           )}
 
         {/* TAB 3: SAVED PROPERTIES & REELS */}
@@ -663,13 +694,15 @@ export function App() {
       </main>
       )}
 
-      {/* Mobile Bottom Navigation */}
-      <BottomNav
-        currentTab={currentTab}
-        onTabChange={setCurrentTab}
-        currentUser={currentUser}
-        savedCount={savedPropertyIds.length}
-      />
+      {/* Mobile Bottom Navigation — hidden when inside a chat thread on mobile */}
+      {(!isInChatThread || currentTab !== 'chats') && (
+        <BottomNav
+          currentTab={currentTab}
+          onTabChange={handleTabNavigate}
+          currentUser={currentUser}
+          savedCount={savedPropertyIds.length}
+        />
+      )}
 
       {/* MODALS */}
       <PropertyDetailModal
@@ -697,16 +730,6 @@ export function App() {
         currentUser={currentUser}
         onOpenChat={handleOpenChat}
       />
-
-      {currentUser && chatState.open && chatState.enquiry && (
-        <ChatModal
-          isOpen={chatState.open}
-          onClose={handleCloseChat}
-          currentUser={currentUser}
-          otherUserId={chatState.otherUserId || chatState.enquiry.sender_id || chatState.enquiry.recipient_id}
-          enquiry={chatState.enquiry}
-        />
-      )}
 
       {reportState.open && (
         <ReportModal

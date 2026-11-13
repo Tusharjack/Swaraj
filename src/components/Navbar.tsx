@@ -8,7 +8,7 @@ export type AppTab = 'properties' | 'reels' | 'chats' | 'saved' | 'professional'
 
 interface NavbarProps {
   currentTab: AppTab;
-  onTabChange: (tab: AppTab) => void;
+  onTabChange: (tab: AppTab, meta?: any) => void;
   currentUser: Profile | null;
   onOpenAuth: () => void;
   savedCount: number;
@@ -132,7 +132,7 @@ export const Navbar: React.FC<NavbarProps> = ({ currentTab, onTabChange, current
           <NotificationBell
             currentUser={currentUser}
             onOpenAuth={onOpenAuth}
-            onNavigate={(tab) => onTabChange(tab as AppTab)}
+            onNavigate={(tab, meta) => onTabChange(tab as AppTab, meta)}
           />
 
           {currentUser && (
