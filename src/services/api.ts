@@ -43,6 +43,7 @@ export const api = {
   getPropertyById: propertyService.getPropertyById.bind(propertyService),
   createProperty: propertyService.createProperty.bind(propertyService),
   updatePropertyStatus: propertyService.updatePropertyStatus.bind(propertyService),
+  updateProperty: propertyService.updateProperty.bind(propertyService),
   toggleSaveProperty: propertyService.toggleSaveProperty.bind(propertyService),
   getSavedPropertyIds: propertyService.getSavedPropertyIds.bind(propertyService),
   incrementPropertyViews: propertyService.incrementPropertyViews.bind(propertyService),

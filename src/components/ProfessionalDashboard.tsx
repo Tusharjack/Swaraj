@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Building2, Plus, Film, Mail, Eye, TrendingUp, ShieldCheck, Trash2, MessageCircle, Coins, Star } from 'lucide-react';
+import { Building2, Plus, Film, Mail, Eye, TrendingUp, ShieldCheck, Trash2, MessageCircle, Coins, Star, Landmark, Pencil, Play } from 'lucide-react';
 import type { Profile, Property, Enquiry, Reel } from '../types/database';
+import type { AppTab } from './Navbar';
 import { api, idsEqual } from '../services/api';
 import { formatPrice } from './PropertyCard';
 
@@ -9,7 +10,10 @@ interface ProfessionalDashboardProps {
   onOpenCreateProperty: () => void;
   onOpenCreateReel: () => void;
   onSelectProperty: (property: Property) => void;
+  onEditProperty?: (property: Property) => void;
+  onOpenReels?: () => void;
   onOpenChat?: (enquiry: Enquiry, otherUserId: string) => void;
+  onTabChange?: (tab: AppTab) => void;
 }
 
 export const ProfessionalDashboard: React.FC<ProfessionalDashboardProps> = ({
@@ -17,7 +21,10 @@ export const ProfessionalDashboard: React.FC<ProfessionalDashboardProps> = ({
   onOpenCreateProperty,
   onOpenCreateReel,
   onSelectProperty,
-  onOpenChat
+  onEditProperty,
+  onOpenReels,
+  onOpenChat,
+  onTabChange
 }) => {
   const [properties, setProperties] = useState<Property[]>([]);
   const [enquiries, setEnquiries] = useState<Enquiry[]>([]);
@@ -135,6 +142,26 @@ export const ProfessionalDashboard: React.FC<ProfessionalDashboardProps> = ({
     }
   };
 
+  const [boostingReelId, setBoostingReelId] = useState<string | null>(null);
+
+  const handleBoostReel = async (reel: Reel, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (reel.boosted) return;
+    if (!confirm(`Boost "${reel.title}" for 30 platform credit tokens? Boosted reels get higher visibility in the feed for 7 days.`)) {
+      return;
+    }
+    setBoostingReelId(reel.id);
+    try {
+      await api.redeemForBoost(reel.id);
+      setReels(prev => prev.map(r => r.id === reel.id ? { ...r, boosted: true } : r));
+      alert('🎉 Reel boosted successfully!');
+    } catch (err: any) {
+      alert(err.message || 'Boost failed. Make sure you have at least 30 tokens.');
+    } finally {
+      setBoostingReelId(null);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Top Profile Banner */}
@@ -162,16 +189,30 @@ export const ProfessionalDashboard: React.FC<ProfessionalDashboardProps> = ({
         </div>
 
         {/* Action Buttons */}
-        <div className="flex items-center gap-3 w-full md:w-auto">
+        <div className="flex flex-wrap items-center gap-2.5 w-full md:w-auto">
+          {currentUser.role === 'admin' && (
+            <button
+              onClick={() => onTabChange?.('admin')}
+              className="flex-1 md:flex-none px-4 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:opacity-90 text-white rounded-xl text-xs font-bold shadow-lg shadow-purple-500/30 flex items-center justify-center gap-1.5 transition cursor-pointer"
+            >
+              <ShieldCheck className="w-4 h-4 text-amber-300" /> Admin Console
+            </button>
+          )}
+          <button
+            onClick={() => onTabChange?.('homeloan')}
+            className="flex-1 md:flex-none px-4 py-2.5 bg-white/15 hover:bg-white/25 border border-white/20 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer"
+          >
+            <Landmark className="w-4 h-4 text-blue-300" /> Home Loan
+          </button>
           <button
             onClick={onOpenCreateProperty}
-            className="flex-1 md:flex-none px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold shadow-lg shadow-indigo-500/30 flex items-center justify-center gap-1.5 transition"
+            className="flex-1 md:flex-none px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold shadow-lg shadow-indigo-500/30 flex items-center justify-center gap-1.5 transition cursor-pointer"
           >
             <Plus className="w-4 h-4" /> Add Property
           </button>
           <button
             onClick={onOpenCreateReel}
-            className="flex-1 md:flex-none px-4 py-2.5 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-bold shadow-lg shadow-purple-500/30 flex items-center justify-center gap-1.5 transition"
+            className="flex-1 md:flex-none px-4 py-2.5 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-bold shadow-lg shadow-purple-500/30 flex items-center justify-center gap-1.5 transition cursor-pointer"
           >
             <Film className="w-4 h-4" /> Upload Reel
           </button>
@@ -397,17 +438,17 @@ export const ProfessionalDashboard: React.FC<ProfessionalDashboardProps> = ({
                     <div
                       key={prop.id}
                       onClick={() => onSelectProperty(prop)}
-                      className="p-4 rounded-2xl border border-slate-200/80 hover:border-indigo-400 hover:shadow-md cursor-pointer transition flex items-center justify-between gap-3 group"
+                      className="p-4 rounded-2xl border border-slate-200/80 hover:border-indigo-400 hover:shadow-md cursor-pointer transition flex flex-col sm:flex-row sm:items-center gap-3 group"
                     >
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-3 min-w-0 flex-1">
                         <img
                           src={prop.media?.[0]?.url || 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=300'}
                           alt={prop.title}
-                          className="w-16 h-16 rounded-xl object-cover border"
+                          className="w-16 h-16 rounded-xl object-cover border shrink-0"
                         />
-                        <div>
-                          <div className="flex items-center gap-1.5">
-                            <h4 className="font-bold text-sm text-slate-900 line-clamp-1">{prop.title}</h4>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <h4 className="font-bold text-sm text-slate-900 truncate">{prop.title}</h4>
                             {prop.featured && (
                               <span className="px-1.5 py-0.5 bg-amber-500 text-white text-[9px] font-black uppercase rounded tracking-wider shrink-0 flex items-center gap-0.5">
                                 <Star className="w-2.5 h-2.5 fill-white" /> Featured
@@ -417,14 +458,14 @@ export const ProfessionalDashboard: React.FC<ProfessionalDashboardProps> = ({
                           <p className="text-xs font-extrabold text-indigo-600">
                             {formatPrice(prop.price, prop.listing_type)}
                           </p>
-                          <p className="text-[11px] text-slate-400">{prop.location}, {prop.city}</p>
+                          <p className="text-[11px] text-slate-400 truncate">{prop.location}, {prop.city}</p>
                           {promoteMsg?.id === prop.id && (
                             <p className="text-[10px] font-bold text-emerald-600 mt-1">{promoteMsg.msg}</p>
                           )}
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-2 shrink-0">
+                      <div className="flex items-center gap-2 flex-wrap justify-end shrink-0">
                         {!prop.featured ? (
                           <button
                             onClick={(e) => handlePromoteProperty(prop, e)}
@@ -444,6 +485,15 @@ export const ProfessionalDashboard: React.FC<ProfessionalDashboardProps> = ({
                         <span className="px-2.5 py-1 bg-emerald-50 text-emerald-700 text-[10px] font-bold rounded-lg uppercase">
                           {prop.status}
                         </span>
+                        {onEditProperty && (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); onEditProperty(prop); }}
+                            title="Edit Property"
+                            className="p-2 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 rounded-xl transition cursor-pointer"
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </button>
+                        )}
                         <button
                           onClick={(e) => handleDeleteProperty(prop.id, e)}
                           title="Delete Property"
@@ -462,9 +512,27 @@ export const ProfessionalDashboard: React.FC<ProfessionalDashboardProps> = ({
           {activeTab === 'reels' && (
             <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
               {reels.map((reel) => (
-                <div key={reel.id} className="relative aspect-[9/16] rounded-2xl overflow-hidden bg-slate-900 text-white p-3 flex flex-col justify-between group">
-                  <img src={reel.thumbnail_url} alt={reel.title} className="absolute inset-0 w-full h-full object-cover opacity-80" />
-                  
+                <div
+                  key={reel.id}
+                  onClick={() => onOpenReels?.()}
+                  className="relative aspect-[9/16] rounded-2xl overflow-hidden bg-slate-900 text-white p-3 flex flex-col justify-between group cursor-pointer hover:ring-2 hover:ring-indigo-400 transition"
+                >
+                  <img src={reel.thumbnail_url} alt={reel.title} className="absolute inset-0 w-full h-full object-cover opacity-80 group-hover:opacity-100 transition" />
+
+                  {/* Boosted badge */}
+                  {reel.boosted && (
+                    <div className="absolute top-2 left-2 z-20 px-1.5 py-0.5 bg-amber-500 text-white text-[9px] font-black uppercase rounded flex items-center gap-0.5">
+                      <Star className="w-2.5 h-2.5 fill-white" /> Boosted
+                    </div>
+                  )}
+
+                  {/* Play indicator */}
+                  <div className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
+                    <div className="p-2.5 bg-black/50 backdrop-blur-sm rounded-full group-hover:scale-110 transition">
+                      <Play className="w-5 h-5 text-white fill-white" />
+                    </div>
+                  </div>
+
                   <div className="relative z-10 flex items-center justify-between w-full">
                     <div className="bg-black/60 backdrop-blur-sm px-2 py-0.5 rounded-full text-[10px] font-bold">
                       ❤️ {reel.likes_count}
@@ -478,8 +546,22 @@ export const ProfessionalDashboard: React.FC<ProfessionalDashboardProps> = ({
                     </button>
                   </div>
 
-                  <div className="relative z-10">
-                    <p className="text-xs font-bold line-clamp-1">{reel.title}</p>
+                  <div className="relative z-10 space-y-1.5">
+                    <p className="text-xs font-bold line-clamp-1 drop-shadow">{reel.title}</p>
+                    {reel.boosted ? (
+                      <span className="block w-full text-center px-2 py-1 bg-amber-500/90 text-white text-[10px] font-bold rounded-lg">
+                        Boosted
+                      </span>
+                    ) : (
+                      <button
+                        onClick={(e) => handleBoostReel(reel, e)}
+                        disabled={boostingReelId === reel.id}
+                        className="w-full px-2 py-1 bg-gradient-to-r from-amber-500 to-orange-500 text-white text-[10px] font-bold rounded-lg shadow flex items-center justify-center gap-1 disabled:opacity-50"
+                      >
+                        <Coins className="w-3 h-3" />
+                        {boostingReelId === reel.id ? 'Boosting…' : 'Boost (30)'}
+                      </button>
+                    )}
                   </div>
                 </div>
               ))}

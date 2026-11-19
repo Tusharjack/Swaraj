@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Camera, User, Phone, MapPin, Building2, CheckCircle2, LogOut, Trash2, X, Lock, ShieldAlert } from 'lucide-react';
+import { Camera, User, Phone, MapPin, Building2, CheckCircle2, LogOut, Trash2, X, Lock, ShieldAlert, Landmark, Coins, ShieldCheck, ChevronRight } from 'lucide-react';
 import { api } from '../services/api';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import type { Profile } from '../types/database';
+import type { AppTab } from './Navbar';
 import { TwoFactorSection } from './TwoFactorAuth';
 import { PasswordSettingsSection } from './PasswordSettings';
 
@@ -12,6 +13,7 @@ interface ProfileModalProps {
   currentUser: Profile | null;
   onProfileUpdated: (updated: Profile) => void;
   onLogout: () => void;
+  onNavigate?: (tab: AppTab) => void;
 }
 
 // ─── Profile Modal ─────────────────────────────────────────────────────────────
@@ -21,6 +23,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
   currentUser,
   onProfileUpdated,
   onLogout,
+  onNavigate,
 }) => {
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
@@ -141,6 +144,69 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                 <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" /> Profile updated successfully!
               </div>
             )}
+
+            {/* Quick Portals & Shortcuts */}
+            <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-3 space-y-2">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block px-1">
+                Quick Portals & Features
+              </span>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => { onClose(); onNavigate?.('homeloan'); }}
+                  className="flex items-center justify-between p-2.5 bg-white border border-slate-200 hover:border-blue-400 rounded-xl text-left transition group cursor-pointer shadow-xs"
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+                      <Landmark className="w-4 h-4" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold text-slate-800 group-hover:text-blue-600 truncate">Home Loan</p>
+                      <p className="text-[10px] text-slate-400 truncate">Apply & track requests</p>
+                    </div>
+                  </div>
+                  <ChevronRight className="w-3.5 h-3.5 text-slate-300 group-hover:text-blue-500 shrink-0" />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => { onClose(); onNavigate?.('tokens'); }}
+                  className="flex items-center justify-between p-2.5 bg-white border border-slate-200 hover:border-amber-400 rounded-xl text-left transition group cursor-pointer shadow-xs"
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="w-8 h-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
+                      <Coins className="w-4 h-4" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold text-slate-800 group-hover:text-amber-600 truncate">Token Wallet</p>
+                      <p className="text-[10px] text-slate-400 truncate">Balance & referrals</p>
+                    </div>
+                  </div>
+                  <ChevronRight className="w-3.5 h-3.5 text-slate-300 group-hover:text-amber-500 shrink-0" />
+                </button>
+
+                {currentUser.role === 'admin' && (
+                  <button
+                    type="button"
+                    onClick={() => { onClose(); onNavigate?.('admin'); }}
+                    className="sm:col-span-2 flex items-center justify-between p-2.5 bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-200 hover:border-purple-400 rounded-xl text-left transition group cursor-pointer shadow-xs"
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="w-8 h-8 rounded-lg bg-purple-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+                        <ShieldCheck className="w-4 h-4" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-xs font-black text-purple-900 group-hover:text-purple-700 truncate">Master Admin Dashboard</p>
+                        <p className="text-[10px] text-purple-600 truncate">All 9 moderation, loan review & token tools</p>
+                      </div>
+                    </div>
+                    <span className="text-[10px] font-bold uppercase bg-purple-600 text-white px-2 py-0.5 rounded-full shrink-0">
+                      Open Console →
+                    </span>
+                  </button>
+                )}
+              </div>
+            </div>
 
             {/* Avatar upload */}
             <div className="flex flex-col items-center justify-center text-center space-y-2 py-2">

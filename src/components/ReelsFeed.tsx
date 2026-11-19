@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Heart, MessageCircle, Bookmark, Share2, Send, Building, Plus, Check, Play, ShieldCheck, MessageSquare, Camera, Music, MoreVertical } from 'lucide-react';
+import { Heart, MessageCircle, Bookmark, Share2, Building, Plus, Check, Play, ShieldCheck, MessageSquare, Camera, Music, MoreVertical, Coins, Star } from 'lucide-react';
 import type { Reel, ReelComment, Property, Profile } from '../types/database';
 import { api } from '../services/api';
 import { formatPrice } from './PropertyCard';
@@ -67,7 +67,6 @@ export const ReelVideoPlayer: React.FC<{
 interface ReelsFeedProps {
   reels: Reel[];
   onOpenProperty: (property: Property) => void;
-  onOpenEnquiry: (reel: Reel) => void;
   currentUser: Profile | null;
   onRefreshReels: () => void;
   onOpenCreateReel?: () => void;
@@ -80,7 +79,6 @@ interface ReelsFeedProps {
 export const ReelsFeed: React.FC<ReelsFeedProps> = ({
   reels,
   onOpenProperty,
-  onOpenEnquiry,
   currentUser,
   onRefreshReels,
   onOpenCreateReel,
@@ -100,6 +98,8 @@ export const ReelsFeed: React.FC<ReelsFeedProps> = ({
   const [localLikeStates, setLocalLikeStates] = useState<{ [id: string]: { isLiked: boolean; count: number } }>({});
   const [localSaveStates, setLocalSaveStates] = useState<{ [id: string]: boolean }>({});
   const [localCommentCounts, setLocalCommentCounts] = useState<{ [id: string]: number }>({});
+  const [boostingReelId, setBoostingReelId] = useState<string | null>(null);
+  const [boostedReelIds, setBoostedReelIds] = useState<Set<string>>(new Set());
 
   const pendingLikesRef = useRef<Set<string>>(new Set());
   const pendingSavesRef = useRef<Set<string>>(new Set());
@@ -171,6 +171,27 @@ export const ReelsFeed: React.FC<ReelsFeedProps> = ({
     if (!currentUser) { if (onOpenAuth) onOpenAuth(); return; }
     await api.toggleFollowCreator(creatorId);
     onRefreshReels();
+  };
+
+  const handleBoostReel = async (reel: Reel) => {
+    if (!currentUser) { if (onOpenAuth) onOpenAuth(); return; }
+    if (boostingReelId === reel.id) return;
+    const isBoosted = boostedReelIds.has(reel.id) || reel.boosted;
+    if (isBoosted) return;
+    if (!confirm(`Boost this reel for 30 platform credit tokens? Boosted reels get higher visibility in the feed for 7 days.`)) {
+      return;
+    }
+    setBoostingReelId(reel.id);
+    try {
+      await api.redeemForBoost(reel.id);
+      setBoostedReelIds(prev => new Set(prev).add(reel.id));
+      alert('🎉 Reel boosted successfully! It will appear higher in the feed.');
+      onRefreshReels();
+    } catch (err: any) {
+      alert(err.message || 'Boost failed. Make sure you have at least 30 tokens.');
+    } finally {
+      setBoostingReelId(null);
+    }
   };
 
   const handleOpenComments = async (reel: Reel) => {
@@ -430,12 +451,29 @@ export const ReelsFeed: React.FC<ReelsFeedProps> = ({
                         <MessageCircle className="w-3.5 h-3.5" /> Direct Chat
                       </button>
                     )}
-                    <button
-                      onClick={() => onOpenEnquiry(reel)}
-                      className="flex-1 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 cursor-pointer"
-                    >
-                      <Send className="w-3.5 h-3.5" /> Send Enquiry
-                    </button>
+                    {(() => {
+                      const isBoosted = boostedReelIds.has(reel.id) || reel.boosted;
+                      const isBoosting = boostingReelId === reel.id;
+                      return (
+                        <button
+                          onClick={() => handleBoostReel(reel)}
+                          disabled={isBoosted || isBoosting}
+                          className={`flex-1 py-2.5 font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 cursor-pointer transition ${
+                            isBoosted
+                              ? 'bg-amber-100 text-amber-700 border border-amber-300'
+                              : 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-lg shadow-amber-500/30 hover:opacity-95'
+                          } disabled:cursor-not-allowed`}
+                        >
+                          {isBoosted ? (
+                            <><Star className="w-3.5 h-3.5 fill-amber-500" /> Boosted</>
+                          ) : isBoosting ? (
+                            <><Coins className="w-3.5 h-3.5 animate-pulse" /> Boosting…</>
+                          ) : (
+                            <><Coins className="w-3.5 h-3.5" /> Boost (30)</>
+                          )}
+                        </button>
+                      );
+                    })()}
                   </div>
                 </div>
               </div>

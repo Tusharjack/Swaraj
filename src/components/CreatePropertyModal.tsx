@@ -1,21 +1,25 @@
-import React, { useState } from 'react';
-import { Plus, X, Building, Upload } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Plus, X, Building, Upload, Edit3 } from 'lucide-react';
 import { api } from '../services/api';
-import type { Profile, PropertyType, ListingType } from '../types/database';
+import type { Profile, Property, PropertyType, ListingType } from '../types/database';
 
 interface CreatePropertyModalProps {
   isOpen: boolean;
   onClose: () => void;
   currentUser: Profile;
   onSuccess: () => void;
+  editingProperty?: Property | null;
 }
 
 export const CreatePropertyModal: React.FC<CreatePropertyModalProps> = ({
   isOpen,
   onClose,
   currentUser,
-  onSuccess
+  onSuccess,
+  editingProperty
 }) => {
+  const isEditing = Boolean(editingProperty);
+
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [price, setPrice] = useState<number | ''>('');
@@ -33,6 +37,41 @@ export const CreatePropertyModal: React.FC<CreatePropertyModalProps> = ({
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+
+  // Pre-fill form when editing an existing property
+  useEffect(() => {
+    if (editingProperty) {
+      setTitle(editingProperty.title || '');
+      setDescription(editingProperty.description || '');
+      setPrice(editingProperty.price ?? '');
+      setPropertyType(editingProperty.property_type || 'apartment');
+      setListingType(editingProperty.listing_type || 'sell');
+      setBedrooms(editingProperty.bedrooms ?? 0);
+      setBathrooms(editingProperty.bathrooms ?? 0);
+      setAreaSqft(editingProperty.area_sqft ?? '');
+      setLocation(editingProperty.location || '');
+      setCity(editingProperty.city || 'Mumbai');
+      setAmenitiesInput((editingProperty.amenities || []).join(', '));
+      const existingMedia = editingProperty.media?.map(m => m.url) || editingProperty.images || [];
+      setMediaList(existingMedia);
+    } else {
+      // Reset for new property
+      setTitle('');
+      setDescription('');
+      setPrice('');
+      setPropertyType('apartment');
+      setListingType('sell');
+      setBedrooms(3);
+      setBathrooms(3);
+      setAreaSqft('');
+      setLocation('');
+      setCity('Mumbai');
+      setAmenitiesInput('Swimming Pool, Gym, 24/7 Security, Power Backup, Parking');
+      setMediaList([]);
+    }
+    setErrorMsg(null);
+    setUploadError(null);
+  }, [editingProperty, isOpen]);
 
   if (!isOpen) return null;
 
@@ -80,8 +119,12 @@ export const CreatePropertyModal: React.FC<CreatePropertyModalProps> = ({
     setLoading(true);
     try {
       const amenities = amenitiesInput.split(',').map(a => a.trim()).filter(Boolean);
-      await api.createProperty(
-        {
+      const finalMedia = mediaList.length > 0
+        ? mediaList
+        : ['https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=1200'];
+
+      if (isEditing && editingProperty) {
+        await api.updateProperty(editingProperty.id, {
           title,
           description,
           price: Number(price),
@@ -92,15 +135,30 @@ export const CreatePropertyModal: React.FC<CreatePropertyModalProps> = ({
           area_sqft: Number(areaSqft),
           location,
           city,
-          status: 'available',
-          owner_id: currentUser.id,
-          featured: true,
-          amenities
-        },
-        mediaList.length > 0
-          ? mediaList
-          : ['https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=1200']
-      );
+          amenities,
+          images: finalMedia,
+        });
+      } else {
+        await api.createProperty(
+          {
+            title,
+            description,
+            price: Number(price),
+            property_type: propertyType,
+            listing_type: listingType,
+            bedrooms: Number(bedrooms),
+            bathrooms: Number(bathrooms),
+            area_sqft: Number(areaSqft),
+            location,
+            city,
+            status: 'available',
+            owner_id: currentUser.id,
+            featured: true,
+            amenities
+          },
+          finalMedia
+        );
+      }
 
       setTitle('');
       setDescription('');
@@ -111,10 +169,10 @@ export const CreatePropertyModal: React.FC<CreatePropertyModalProps> = ({
       onSuccess();
       onClose();
     } catch (err: any) {
-      console.error('Create property error:', err);
+      console.error('Property save error:', err);
       setErrorMsg(
         err.message ||
-        'Could not publish property. Please check your inputs or Supabase connection.'
+        'Could not save property. Please check your inputs or Supabase connection.'
       );
     } finally {
       setLoading(false);
@@ -128,11 +186,13 @@ export const CreatePropertyModal: React.FC<CreatePropertyModalProps> = ({
         <div className="p-5 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white flex items-center justify-between shrink-0">
           <div className="flex items-center gap-2.5">
             <div className="p-2 bg-indigo-600 rounded-xl">
-              <Building className="w-5 h-5" />
+              {isEditing ? <Edit3 className="w-5 h-5" /> : <Building className="w-5 h-5" />}
             </div>
             <div>
-              <h3 className="font-bold text-lg">List New Property</h3>
-              <p className="text-xs text-slate-300">Publish property directly to IndoProperty customer discovery</p>
+              <h3 className="font-bold text-lg">{isEditing ? 'Edit Property' : 'List New Property'}</h3>
+              <p className="text-xs text-slate-300">
+                {isEditing ? 'Update your property listing details' : 'Publish property directly to IndoProperty customer discovery'}
+              </p>
             </div>
           </div>
           <button onClick={onClose} className="text-slate-400 hover:text-white text-xl font-bold">✕</button>
@@ -298,7 +358,7 @@ export const CreatePropertyModal: React.FC<CreatePropertyModalProps> = ({
             </button>
             <button type="submit" disabled={loading || uploadingImage}
               className="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-md shadow-indigo-200 transition disabled:opacity-50">
-              {loading ? 'Publishing...' : 'Publish Property'}
+              {loading ? (isEditing ? 'Saving...' : 'Publishing...') : (isEditing ? 'Save Changes' : 'Publish Property')}
             </button>
           </div>
         </form>

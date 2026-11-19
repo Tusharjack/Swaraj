@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Heart, MapPin, Bed, Bath, Maximize2, ShieldCheck, Mail, Share2, Send, CheckCircle2, Flag, MessageCircle } from 'lucide-react';
+import { Heart, MapPin, Bed, Bath, Maximize2, ShieldCheck, Mail, Share2, Send, CheckCircle2, Flag, MessageCircle, Landmark } from 'lucide-react';
 import type { Property } from '../types/database';
 import { formatPrice } from './PropertyCard';
 import { ShareModal } from './ShareModal';
@@ -13,6 +13,7 @@ interface PropertyDetailModalProps {
   onOpenEnquiry: (property: Property) => void;
   onOpenDirectChat?: (recipientId: string, property: Property) => void;
   onOpenReport?: (target_type: 'reel' | 'property' | 'user' | 'comment', target_id: string, target_label?: string) => void;
+  onOpenHomeLoan?: () => void;
 }
 
 export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
@@ -24,6 +25,7 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
   onOpenEnquiry,
   onOpenDirectChat,
   onOpenReport,
+  onOpenHomeLoan,
 }) => {
   const [activeImageIdx, setActiveImageIdx] = useState(0);
   const [isShareOpen, setIsShareOpen] = useState(false);
@@ -217,7 +219,15 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 w-full md:w-auto">
+              <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+                {onOpenHomeLoan && (
+                  <button
+                    onClick={onOpenHomeLoan}
+                    className="flex-1 md:flex-none px-4 py-3 bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold border border-blue-200 rounded-xl text-xs sm:text-sm transition flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <Landmark className="w-4 h-4 text-blue-600" /> Apply Loan / EMI
+                  </button>
+                )}
                 {onOpenDirectChat && (
                   <button
                     onClick={() => onOpenDirectChat(property.owner_id, property)}

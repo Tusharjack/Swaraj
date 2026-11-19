@@ -63,6 +63,7 @@ export function App() {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isSupabaseConfigOpen, setIsSupabaseConfigOpen] = useState(false);
   const [isCreatePropertyOpen, setIsCreatePropertyOpen] = useState(false);
+  const [editingProperty, setEditingProperty] = useState<Property | null>(null);
   const [isCreateReelOpen, setIsCreateReelOpen] = useState(false);
   const [mfaRequired, setMfaRequired] = useState(false);
   const [showSetPassword, setShowSetPassword] = useState(() =>
@@ -396,16 +397,22 @@ export function App() {
             {/* Quick-stat chips */}
             <div className="flex flex-wrap items-center gap-2 mt-4">
               {[
-                { emoji: '🏠', label: 'Buy' },
-                { emoji: '🔑', label: 'Rent' },
-                { emoji: '📐', label: 'Lease' },
-                { emoji: '🎬', label: 'Video Reels' },
-                { emoji: '💬', label: 'Direct Chat' },
-                { emoji: '🏦', label: 'Home Loan' },
+                { emoji: '🏠', label: 'Buy', action: () => setFilters(f => ({ ...f, listing_type: 'buy' })) },
+                { emoji: '🔑', label: 'Rent', action: () => setFilters(f => ({ ...f, listing_type: 'rent' })) },
+                { emoji: '📐', label: 'Lease', action: () => setFilters(f => ({ ...f, listing_type: 'rent', property_type: 'commercial' })) },
+                { emoji: '🎬', label: 'Video Reels', action: () => handleTabNavigate('reels') },
+                { emoji: '💬', label: 'Direct Chat', action: () => handleTabNavigate('chats') },
+                { emoji: '🏦', label: 'Home Loan', action: () => handleTabNavigate('homeloan') },
               ].map(c => (
-                <span key={c.label} className="inline-flex items-center gap-1 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-[11px] font-semibold text-slate-700">
-                  {c.emoji} {c.label}
-                </span>
+                <button
+                  key={c.label}
+                  type="button"
+                  onClick={c.action}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 hover:bg-indigo-50 hover:text-indigo-600 border border-slate-200 hover:border-indigo-200 rounded-xl text-[11px] font-bold text-slate-700 transition cursor-pointer active:scale-95 shadow-2xs"
+                >
+                  <span>{c.emoji}</span>
+                  <span>{c.label}</span>
+                </button>
               ))}
             </div>
           </div>
@@ -435,7 +442,6 @@ export function App() {
               <ReelsFeed
                 reels={reels}
                 onOpenProperty={handleSelectProperty}
-                onOpenEnquiry={(r) => setEnquiryTarget({ reel: r, property: r.property })}
                 currentUser={currentUser}
                 onRefreshReels={handleRefreshReels}
                 onOpenCreateReel={() => {
@@ -636,20 +642,33 @@ export function App() {
         {/* TAB 4: PROFESSIONAL DASHBOARD / PROFILE */}
         {currentTab === 'professional' && (
           currentUser ? (
-            <ProfessionalDashboard
-              currentUser={currentUser}
-              onOpenCreateProperty={() => setIsCreatePropertyOpen(true)}
-              onOpenCreateReel={() => setIsCreateReelOpen(true)}
-              onSelectProperty={handleSelectProperty}
-              onOpenChat={handleOpenChat}
-            />
+            currentUser.role === 'customer' ? (
+              <ProfilePage
+                currentUser={currentUser}
+                onOpenAuth={() => setIsAuthOpen(true)}
+                onOpenProfile={() => setIsProfileOpen(true)}
+                onLogout={handleLogout}
+                onTabChange={handleTabNavigate}
+              />
+            ) : (
+              <ProfessionalDashboard
+                currentUser={currentUser}
+                onOpenCreateProperty={() => { setEditingProperty(null); setIsCreatePropertyOpen(true); }}
+                onOpenCreateReel={() => setIsCreateReelOpen(true)}
+                onSelectProperty={handleSelectProperty}
+                onEditProperty={(prop) => { setEditingProperty(prop); setIsCreatePropertyOpen(true); }}
+                onOpenReels={() => handleTabNavigate('reels')}
+                onOpenChat={handleOpenChat}
+                onTabChange={handleTabNavigate}
+              />
+            )
           ) : (
             <ProfilePage
               currentUser={null}
               onOpenAuth={() => setIsAuthOpen(true)}
               onOpenProfile={() => setIsProfileOpen(true)}
               onLogout={handleLogout}
-              onTabChange={setCurrentTab}
+              onTabChange={handleTabNavigate}
             />
           )
         )}
@@ -720,6 +739,10 @@ export function App() {
           handleOpenDirectChat(recipientId, property);
         }}
         onOpenReport={handleOpenReport}
+        onOpenHomeLoan={() => {
+          setSelectedProperty(null);
+          handleTabNavigate('homeloan');
+        }}
       />
 
       <EnquiryModal
@@ -761,6 +784,7 @@ export function App() {
           loadData();
         }}
         onLogout={handleLogout}
+        onNavigate={handleTabNavigate}
       />
 
       <SupabaseConfigModal
@@ -785,9 +809,10 @@ export function App() {
         <>
           <CreatePropertyModal
             isOpen={isCreatePropertyOpen}
-            onClose={() => setIsCreatePropertyOpen(false)}
+            onClose={() => { setIsCreatePropertyOpen(false); setEditingProperty(null); }}
             currentUser={currentUser}
             onSuccess={handleRefreshProperties}
+            editingProperty={editingProperty}
           />
 
           <CreateReelModal

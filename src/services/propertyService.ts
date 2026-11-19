@@ -242,6 +242,64 @@ export const propertyService = {
     }
   },
 
+  /**
+   * Update an existing property. Only the owner (or an admin via RLS) can edit.
+   * Accepts a partial set of fields so the UI can update just price, title, etc.
+   */
+  async updateProperty(
+    id: string,
+    updates: Partial<Omit<Property, 'id' | 'created_at' | 'updated_at' | 'views_count' | 'owner' | 'media'>> & {
+      images?: string[];
+    }
+  ): Promise<Property> {
+    if (!isSupabaseConfigured) {
+      throw new Error('Supabase is not configured. Cannot update property.');
+    }
+
+    const currentUser = await authService.getCurrentUser();
+    if (!currentUser) {
+      throw new Error('You must be logged in to edit a property.');
+    }
+
+    const payload: Record<string, any> = { ...updates, updated_at: new Date().toISOString() };
+    // Remove undefined fields to avoid wiping columns
+    Object.keys(payload).forEach((k) => {
+      if (payload[k] === undefined) delete payload[k];
+    });
+
+    const { data, error } = await supabase
+      .from('properties')
+      .update(payload)
+      .eq('id', id)
+      .select('*, owner:profiles(*), media:property_media(*)')
+      .single();
+
+    if (error) {
+      throw new Error(`Failed to update property: ${error.message}`);
+    }
+
+    // If media URLs were provided, refresh the property_media rows
+    if (updates.images && updates.images.length > 0) {
+      const { error: mediaError } = await supabase
+        .from('property_media')
+        .delete()
+        .eq('property_id', id);
+      if (!mediaError) {
+        await supabase.from('property_media').insert(
+          updates.images.map((url, idx) => ({
+            property_id: id,
+            url,
+            media_type: 'image',
+            display_order: idx + 1,
+          }))
+        );
+      }
+    }
+
+    const updated = await this.getPropertyById(id);
+    return updated ?? (data as Property);
+  },
+
   async toggleSaveProperty(propertyId: string): Promise<boolean> {
     if (!isSupabaseConfigured) {
       // localStorage-only fallback for saved/favourites (UI state, not published content)
