@@ -24,7 +24,7 @@ const CLOUD_NAME =
 const UPLOAD_PRESET =
   import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET || 'indoproperty_unsigned';
 
-export type CloudinaryFolder = 'avatars' | 'properties' | 'reels';
+export type CloudinaryFolder = 'avatars' | 'properties' | 'reels' | 'thumbs' | 'ads';
 
 /**
  * Upload a file to Cloudinary and return the secure HTTPS URL.

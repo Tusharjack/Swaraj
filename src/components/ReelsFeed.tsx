@@ -90,6 +90,7 @@ export const ReelsFeed: React.FC<ReelsFeedProps> = ({
   const [isPlaying, setIsPlaying] = useState(true);
   const [commentDrawerReel, setCommentDrawerReel] = useState<Reel | null>(null);
   const [shareModalReel, setShareModalReel] = useState<Reel | null>(null);
+  const [creatorSheetReel, setCreatorSheetReel] = useState<Reel | null>(null);
   const [commentsList, setCommentsList] = useState<ReelComment[]>([]);
   const [newCommentText, setNewCommentText] = useState('');
   const [doubleTapHeart, setDoubleTapHeart] = useState<{ reelId: string; show: boolean }>({ reelId: '', show: false });
@@ -173,6 +174,13 @@ export const ReelsFeed: React.FC<ReelsFeedProps> = ({
     onRefreshReels();
   };
 
+  // Jump to another reel posted by the same creator (used by the creator sheet).
+  const handleOpenCreatorReel = (reelId: string) => {
+    setCreatorSheetReel(null);
+    const el = document.getElementById(`reel-container-${reelId}`);
+    if (el) el.scrollIntoView({ behavior: 'smooth' });
+  };
+
   const handleBoostReel = async (reel: Reel) => {
     if (!currentUser) { if (onOpenAuth) onOpenAuth(); return; }
     if (boostingReelId === reel.id) return;
@@ -223,6 +231,17 @@ export const ReelsFeed: React.FC<ReelsFeedProps> = ({
   };
 
   // ── Render ───────────────────────────────────────────────────────────────────
+  // Reels posted by the same creator (excluding the current one) — shown in the
+  // "Posted by" sheet so a viewer can browse more from this person.
+  const creatorSheetCreatorId = creatorSheetReel
+    ? (creatorSheetReel.user_id || creatorSheetReel.creator?.id || '')
+    : '';
+  const otherReels = creatorSheetCreatorId
+    ? reels.filter(
+        r => r.id !== creatorSheetReel?.id && (r.user_id || r.creator?.id) === creatorSheetCreatorId
+      )
+    : [];
+
   return (
     // Full-screen container: 100dvh fills the exact visible phone screen (accounts
     // for bottom nav bar and Android system bars on all devices)
@@ -322,10 +341,13 @@ export const ReelsFeed: React.FC<ReelsFeedProps> = ({
                 {/* Right action bar */}
                 <div className="absolute right-3 z-20 flex flex-col items-center gap-4 text-white"
                   style={{ bottom: 'calc(env(safe-area-inset-bottom) + 4.5rem)' }}>
-                  {/* Creator avatar */}
+                  {/* Creator avatar — tap to see who posted & their other reels */}
                   {reel.creator && (
                     <div className="relative mb-1">
-                      <div className="p-[2px] bg-gradient-to-tr from-amber-500 via-rose-500 to-purple-600 rounded-full shadow-lg">
+                      <div
+                        onClick={() => setCreatorSheetReel(reel)}
+                        className="p-[2px] bg-gradient-to-tr from-amber-500 via-rose-500 to-purple-600 rounded-full shadow-lg cursor-pointer active:scale-95 transition"
+                      >
                         <img
                           src={reel.creator.avatar_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100'}
                           alt={reel.creator.full_name}
@@ -334,6 +356,7 @@ export const ReelsFeed: React.FC<ReelsFeedProps> = ({
                       </div>
                       <button
                         onClick={() => handleToggleFollow(reel.user_id)}
+                        title="Follow / Unfollow"
                         className={`absolute -bottom-1 left-1/2 -translate-x-1/2 rounded-full p-0.5 shadow transition ${reel.is_following_creator ? 'bg-emerald-500' : 'bg-rose-500'} text-white`}
                       >
                         {reel.is_following_creator ? <Check className="w-3 h-3" /> : <Plus className="w-3 h-3" />}
@@ -400,7 +423,11 @@ export const ReelsFeed: React.FC<ReelsFeedProps> = ({
                     bottom: 'calc(env(safe-area-inset-bottom) + 4rem)',
                   }}>
                   {reel.creator && (
-                    <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setCreatorSheetReel(reel)}
+                      className="flex items-center gap-2 flex-wrap cursor-pointer active:opacity-80 text-left"
+                    >
                       <span className="font-extrabold text-sm text-white drop-shadow">
                         @{reel.creator.agency_name || reel.creator.full_name}
                       </span>
@@ -409,7 +436,10 @@ export const ReelsFeed: React.FC<ReelsFeedProps> = ({
                           <ShieldCheck className="w-3 h-3" /> Verified
                         </span>
                       )}
-                    </div>
+                      <span className="text-[10px] font-bold text-white bg-white/20 backdrop-blur-sm px-2 py-0.5 rounded-full">
+                        Posted by · View
+                      </span>
+                    </button>
                   )}
 
                   <h3 className="font-bold text-sm line-clamp-1 drop-shadow-sm">{reel.title}</h3>
@@ -521,6 +551,88 @@ export const ReelsFeed: React.FC<ReelsFeedProps> = ({
                 Post
               </button>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Creator sheet — who posted this reel + their other reels */}
+      {creatorSheetReel && (
+        <div
+          className="absolute inset-0 z-40 bg-black/60 backdrop-blur-sm flex flex-col justify-end animate-in slide-in-from-bottom duration-300"
+          onClick={() => setCreatorSheetReel(null)}
+        >
+          <div
+            className="bg-white rounded-t-3xl p-5 max-h-[75%] flex flex-col text-slate-900"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between pb-3 border-b border-slate-200">
+              <h4 className="font-bold text-sm">Posted by</h4>
+              <button onClick={() => setCreatorSheetReel(null)} className="text-slate-400 hover:text-slate-800 font-bold">✕</button>
+            </div>
+
+            {/* Poster identity */}
+            <div className="flex items-center gap-3 py-4">
+              <img
+                src={creatorSheetReel.creator?.avatar_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100'}
+                alt={creatorSheetReel.creator?.full_name || 'Creator'}
+                className="w-14 h-14 rounded-full object-cover border-2 border-slate-200 shrink-0"
+              />
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1.5">
+                  <span className="font-extrabold text-sm truncate">
+                    {creatorSheetReel.creator?.full_name || 'IndoProperty User'}
+                  </span>
+                  {creatorSheetReel.creator?.verified && (
+                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                  )}
+                </div>
+                {creatorSheetReel.creator?.agency_name && (
+                  <p className="text-[11px] text-slate-500 truncate">{creatorSheetReel.creator.agency_name}</p>
+                )}
+                <p className="text-[10px] text-slate-400 font-mono mt-0.5 break-all">
+                  ID: {creatorSheetReel.user_id || creatorSheetReel.creator?.id || '—'}
+                </p>
+              </div>
+              <button
+                onClick={() => handleToggleFollow(creatorSheetReel.user_id)}
+                className={`px-3 py-1.5 rounded-xl text-[11px] font-bold shrink-0 cursor-pointer ${
+                  creatorSheetReel.is_following_creator
+                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                    : 'bg-indigo-600 text-white'
+                }`}
+              >
+                {creatorSheetReel.is_following_creator ? 'Following' : 'Follow'}
+              </button>
+            </div>
+
+            {/* Other reels by the same poster */}
+            <div className="pt-1">
+              <h5 className="text-xs font-bold text-slate-700 mb-2">
+                Other reels by this user ({otherReels.length})
+              </h5>
+              {otherReels.length === 0 ? (
+                <p className="text-xs text-slate-400 py-6 text-center">No other reels from this user yet.</p>
+              ) : (
+                <div className="grid grid-cols-3 gap-2 overflow-y-auto pb-2">
+                  {otherReels.map((r) => (
+                    <button
+                      key={r.id}
+                      onClick={() => handleOpenCreatorReel(r.id)}
+                      className="relative aspect-[9/16] rounded-xl overflow-hidden border border-slate-200 cursor-pointer group bg-slate-100"
+                    >
+                      <img
+                        src={r.thumbnail_url || r.creator?.avatar_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100'}
+                        alt={r.title}
+                        className="w-full h-full object-cover group-active:scale-105 transition"
+                      />
+                      <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-1 text-[9px] font-semibold text-white line-clamp-1 text-left">
+                        {r.title}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}

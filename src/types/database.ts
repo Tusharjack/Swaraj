@@ -296,3 +296,14 @@ export interface ReferralConfig {
   referred_reward: number;   // tokens given to the new user on signup
   min_activity_required: boolean; // must the referred user complete an action?
 }
+
+/** Horizontal ad banner created by an admin and shown on the home feed. */
+export interface Ad {
+  id: string;
+  created_at: string;
+  title: string;
+  image_url: string;
+  link_url?: string;
+  is_active: boolean;
+  display_order: number;
+}

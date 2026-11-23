@@ -436,6 +436,127 @@ export const tokenService = {
     return { success: true, receiverName: receiver.full_name || 'your friend', amount };
   },
 
+  /**
+   * Gift coins to a friend using their registered phone number.
+   * Mirrors giftCoins() but resolves the receiver via profiles.phone.
+   * Requires the `gift_coins_by_phone(p_receiver_phone, p_amount)` RPC.
+   */
+  async giftCoinsByPhone(
+    receiverPhone: string,
+    amount: number
+  ): Promise<{ success: boolean; receiverName: string; amount: number }> {
+    const cleanPhone = (receiverPhone || '').trim().replace(/[^\d+]/g, '');
+    if (!cleanPhone) {
+      throw new Error('Please enter your friend\u2019s registered phone number.');
+    }
+    if (!amount || amount <= 0 || !Number.isInteger(amount)) {
+      throw new Error('Please enter a valid whole-number coin amount.');
+    }
+
+    let sessionUser: any = null;
+    if (isSupabaseConfigured) {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        sessionUser = session?.user;
+      } catch (_e) {}
+    }
+
+    if (!sessionUser) {
+      throw new Error('You must be signed in to gift coins.');
+    }
+
+    const wallet = await this.getMyWallet();
+    if (!wallet || wallet.balance < amount) {
+      throw new Error(`Insufficient balance. You have ${wallet?.balance ?? 0} coins but tried to gift ${amount}.`);
+    }
+
+    if (isSupabaseConfigured && sessionUser) {
+      const { data, error } = await supabase.rpc('gift_coins_by_phone', {
+        p_receiver_phone: cleanPhone,
+        p_amount: amount,
+      });
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      const result = (data || {}) as { success?: boolean; receiver_name?: string; amount?: number };
+      return {
+        success: true,
+        receiverName: result.receiver_name || 'your friend',
+        amount: result.amount ?? amount,
+      };
+    }
+
+    // ── Local fallback (non-Supabase dev mode) ──────────────────────────
+    const currentProfile = getLocalState<any>(STORAGE_KEYS.CURRENT_USER, null);
+    const senderId = sessionUser?.id || currentProfile?.id;
+    const profiles = getLocalState<any[]>(STORAGE_KEYS.PROFILES, []);
+    const receiver = profiles.find((p) => (p.phone || '').replace(/[^\d+]/g, '') === cleanPhone);
+
+    if (!receiver) throw new Error(`No registered user found with phone ${cleanPhone}.`);
+    if (receiver.id === senderId) throw new Error('You cannot gift coins to yourself.');
+
+    const wallets = getLocalState<Record<string, TokenWallet>>(STORAGE_KEYS.TOKEN_WALLETS, {});
+    const senderWallet = wallets[senderId] || getDefaultWallet(senderId);
+    if (senderWallet.balance < amount) {
+      throw new Error(`Insufficient balance. You have ${senderWallet.balance} coins but tried to gift ${amount}.`);
+    }
+
+    wallets[senderId] = {
+      ...senderWallet,
+      balance: senderWallet.balance - amount,
+      total_spent: senderWallet.total_spent + amount,
+      updated_at: new Date().toISOString(),
+    };
+
+    const receiverWallet = wallets[receiver.id] || getDefaultWallet(receiver.id);
+    wallets[receiver.id] = {
+      ...receiverWallet,
+      balance: receiverWallet.balance + amount,
+      total_earned: receiverWallet.total_earned + amount,
+      updated_at: new Date().toISOString(),
+    };
+    setLocalState(STORAGE_KEYS.TOKEN_WALLETS, wallets);
+
+    const txns = getLocalState<TokenTransaction[]>(STORAGE_KEYS.TOKEN_TRANSACTIONS, []);
+    txns.unshift(
+      {
+        id: `tx-gift-out-${Date.now()}`,
+        created_at: new Date().toISOString(),
+        user_id: senderId,
+        amount: -amount,
+        type: 'gifted_sent',
+        description: `Gifted ${amount} coins to ${receiver.full_name}`,
+        reference_id: receiver.id,
+      },
+      {
+        id: `tx-gift-in-${Date.now()}`,
+        created_at: new Date().toISOString(),
+        user_id: receiver.id,
+        amount,
+        type: 'gifted_received',
+        description: `Received ${amount} coins as a gift from ${currentProfile?.full_name || 'a friend'}`,
+        reference_id: senderId,
+      }
+    );
+    setLocalState(STORAGE_KEYS.TOKEN_TRANSACTIONS, txns);
+
+    const notifs = getLocalState<any[]>(STORAGE_KEYS.NOTIFICATIONS, []);
+    notifs.unshift({
+      id: `notif-gift-${Date.now()}`,
+      created_at: new Date().toISOString(),
+      user_id: receiver.id,
+      title: '🎁 Coins Received!',
+      message: `You received ${amount} Coins from ${currentProfile?.full_name || 'a friend'}!`,
+      type: 'system',
+      read: false,
+    });
+    setLocalState(STORAGE_KEYS.NOTIFICATIONS, notifs);
+
+    return { success: true, receiverName: receiver.full_name || 'your friend', amount };
+  },
+
   // ──────────────────────────────────────────────────────────────────────
   // USE COINS — redeem coins to feature listings & boost reels
   // ──────────────────────────────────────────────────────────────────────

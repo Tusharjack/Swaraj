@@ -62,6 +62,7 @@ DROP FUNCTION IF EXISTS public.spend_tokens(UUID, INTEGER, TEXT, TEXT, TEXT)    
 DROP FUNCTION IF EXISTS public.admin_adjust_tokens(UUID, INTEGER, TEXT, TEXT, UUID) CASCADE;
 DROP FUNCTION IF EXISTS public.apply_referral_code(TEXT, UUID)                      CASCADE;
 DROP FUNCTION IF EXISTS public.gift_coins(TEXT, INTEGER)                            CASCADE;
+DROP FUNCTION IF EXISTS public.gift_coins_by_phone(TEXT, INTEGER)                   CASCADE;
 DROP FUNCTION IF EXISTS public.redeem_coins_for_feature(UUID)                       CASCADE;
 DROP FUNCTION IF EXISTS public.redeem_coins_for_boost(UUID)                         CASCADE;
 DROP FUNCTION IF EXISTS public.expire_featured_boosted()                            CASCADE;
@@ -86,6 +87,7 @@ DROP TABLE IF EXISTS public.token_wallets        CASCADE;
 DROP TABLE IF EXISTS public.loan_applications    CASCADE;
 DROP TABLE IF EXISTS public.referrals            CASCADE;
 DROP TABLE IF EXISTS public.platform_settings    CASCADE;
+DROP TABLE IF EXISTS public.ads                  CASCADE;
 DROP TABLE IF EXISTS public.profiles             CASCADE;
 
 
@@ -367,6 +369,18 @@ CREATE TABLE public.saved_preferences (
 );
 
 
+-- 2.18 AD BANNERS (horizontal home-page ads, managed by admins)
+CREATE TABLE public.ads (
+  id            UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  title         TEXT        NOT NULL,
+  image_url     TEXT        NOT NULL,
+  link_url      TEXT,
+  is_active     BOOLEAN     NOT NULL DEFAULT TRUE,
+  display_order INTEGER     NOT NULL DEFAULT 0
+);
+
+
 -- ===========================================================================
 -- SECTION 3 — INDEXES
 -- ===========================================================================
@@ -395,6 +409,7 @@ CREATE INDEX idx_referrals_code        ON public.referrals(UPPER(referral_code))
 CREATE UNIQUE INDEX idx_referrals_code_unique     ON public.referrals(referral_code) WHERE status = 'pending';
 CREATE UNIQUE INDEX idx_referrals_referred_unique ON public.referrals(referred_id)  WHERE status IN ('completed','rewarded');
 CREATE INDEX idx_saved_pref_city       ON public.saved_preferences(city);
+CREATE INDEX idx_ads_active_order      ON public.ads(is_active, display_order);
 
 
 -- ===========================================================================
@@ -573,6 +588,59 @@ BEGIN
 
   IF v_receiver IS NULL THEN
     RAISE EXCEPTION 'No registered user found with email %. Ask your friend to register first.', v_email;
+  END IF;
+  IF v_receiver = v_sender THEN RAISE EXCEPTION 'You cannot gift coins to yourself.'; END IF;
+
+  INSERT INTO public.token_wallets (user_id, balance, total_earned, total_spent)
+  VALUES (v_sender, 25, 25, 0) ON CONFLICT (user_id) DO NOTHING;
+
+  SELECT balance INTO v_balance FROM public.token_wallets WHERE user_id = v_sender FOR UPDATE;
+  IF v_balance IS NULL THEN RAISE EXCEPTION 'Your wallet could not be loaded. Please try again.'; END IF;
+  IF v_balance < p_amount THEN
+    RAISE EXCEPTION 'Insufficient balance. You have % coins but tried to gift %.', v_balance, p_amount;
+  END IF;
+
+  SELECT full_name INTO v_sender_name FROM public.profiles WHERE id = v_sender;
+  IF v_sender_name IS NULL THEN v_sender_name := 'A friend'; END IF;
+
+  INSERT INTO public.token_wallets (user_id, balance, total_earned, total_spent)
+  VALUES (v_receiver, 25, 25, 0) ON CONFLICT (user_id) DO NOTHING;
+  PERFORM 1 FROM public.token_wallets WHERE user_id = v_receiver FOR UPDATE;
+
+  UPDATE public.token_wallets SET balance = balance - p_amount, total_spent = total_spent + p_amount, updated_at = NOW() WHERE user_id = v_sender;
+  UPDATE public.token_wallets SET balance = balance + p_amount, total_earned = total_earned + p_amount, updated_at = NOW() WHERE user_id = v_receiver;
+
+  INSERT INTO public.token_transactions (user_id, amount, type, description, reference_id)
+  VALUES (v_sender, -p_amount, 'gifted_sent', 'Gifted ' || p_amount || ' coins to ' || v_receiver_name, v_receiver::TEXT);
+  INSERT INTO public.token_transactions (user_id, amount, type, description, reference_id)
+  VALUES (v_receiver, p_amount, 'gifted_received', 'Received ' || p_amount || ' coins as a gift from ' || v_sender_name, v_sender::TEXT);
+
+  INSERT INTO public.notifications (user_id, title, message, type, link_url)
+  VALUES (v_receiver, 'Coins Received!', 'You received ' || p_amount || ' Coins from ' || v_sender_name || '!', 'system', '/profile');
+
+  RETURN jsonb_build_object('success', TRUE, 'receiver_id', v_receiver, 'receiver_name', v_receiver_name, 'amount', p_amount);
+END $$;
+
+-- 5.6b gift_coins_by_phone  (rpc params: p_receiver_phone, p_amount)
+-- Same atomic transfer as gift_coins(), but resolves the receiver by the
+-- registered phone number on public.profiles instead of email.
+CREATE OR REPLACE FUNCTION public.gift_coins_by_phone(p_receiver_phone TEXT, p_amount INTEGER)
+RETURNS JSONB LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_sender UUID := auth.uid();
+  v_receiver UUID; v_balance INTEGER; v_sender_name TEXT; v_receiver_name TEXT; v_phone TEXT;
+BEGIN
+  IF v_sender IS NULL THEN RAISE EXCEPTION 'You must be signed in to gift coins.'; END IF;
+  IF p_amount IS NULL OR p_amount <= 0 THEN RAISE EXCEPTION 'Gift amount must be greater than zero.'; END IF;
+
+  v_phone := regexp_replace(COALESCE(p_receiver_phone, ''), '[^0-9+]', '', 'g');
+  IF v_phone = '' THEN RAISE EXCEPTION 'Please enter a valid phone number.'; END IF;
+
+  SELECT id, full_name INTO v_receiver, v_receiver_name FROM public.profiles
+  WHERE regexp_replace(COALESCE(phone, ''), '[^0-9+]', '', 'g') = v_phone LIMIT 1;
+
+  IF v_receiver IS NULL THEN
+    RAISE EXCEPTION 'No registered user found with phone %. Ask your friend to register first.', v_phone;
   END IF;
   IF v_receiver = v_sender THEN RAISE EXCEPTION 'You cannot gift coins to yourself.'; END IF;
 
@@ -932,6 +1000,7 @@ ALTER TABLE public.loan_applications  ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.referrals          ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.platform_settings  ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.saved_preferences  ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.ads                ENABLE ROW LEVEL SECURITY;
 
 
 -- ===========================================================================
@@ -1044,6 +1113,12 @@ CREATE POLICY "saved_pref_select_own" ON public.saved_preferences FOR SELECT USI
 CREATE POLICY "saved_pref_insert_own" ON public.saved_preferences FOR INSERT WITH CHECK (auth.uid() = user_id);
 CREATE POLICY "saved_pref_update_own" ON public.saved_preferences FOR UPDATE USING (auth.uid() = user_id);
 
+-- ADS (everyone reads; only admins create/update/delete)
+CREATE POLICY "ads_select_all"    ON public.ads FOR SELECT USING (true);
+CREATE POLICY "ads_admin_insert"  ON public.ads FOR INSERT WITH CHECK (public.is_admin(auth.uid()));
+CREATE POLICY "ads_admin_update"  ON public.ads FOR UPDATE USING (public.is_admin(auth.uid()));
+CREATE POLICY "ads_admin_delete"  ON public.ads FOR DELETE USING (public.is_admin(auth.uid()));
+
 
 -- ===========================================================================
 -- SECTION 10 — GRANTS
@@ -1060,12 +1135,13 @@ GRANT EXECUTE ON FUNCTION public.admin_adjust_tokens(UUID, INTEGER, TEXT, TEXT, 
 GRANT EXECUTE ON FUNCTION public.credit_tokens(UUID, INTEGER, TEXT, TEXT, UUID, UUID) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.apply_referral_code(TEXT, UUID)                      TO authenticated;
 GRANT EXECUTE ON FUNCTION public.gift_coins(TEXT, INTEGER)                            TO authenticated;
+GRANT EXECUTE ON FUNCTION public.gift_coins_by_phone(TEXT, INTEGER)                   TO authenticated;
 GRANT EXECUTE ON FUNCTION public.redeem_coins_for_feature(UUID)                       TO authenticated;
 GRANT EXECUTE ON FUNCTION public.redeem_coins_for_boost(UUID)                         TO authenticated;
 
 
 -- ===========================================================================
--- SECTION 11 — VERIFICATION (should list 19 tables and 20 functions)
+-- SECTION 11 — VERIFICATION (should list 20 tables and 20 functions)
 -- ===========================================================================
 SELECT 'TABLE' AS kind, tablename AS name
 FROM pg_tables WHERE schemaname = 'public'

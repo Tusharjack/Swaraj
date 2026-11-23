@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, X, Building, Upload, Edit3 } from 'lucide-react';
+import { Plus, X, Building, Upload, Edit3, AlertCircle } from 'lucide-react';
 import { api } from '../services/api';
 import type { Profile, Property, PropertyType, ListingType } from '../types/database';
 
@@ -33,6 +33,10 @@ export const CreatePropertyModal: React.FC<CreatePropertyModalProps> = ({
   const [amenitiesInput, setAmenitiesInput] = useState('Swimming Pool, Gym, 24/7 Security, Power Backup, Parking');
   const [imageUrl, setImageUrl] = useState('');
   const [mediaList, setMediaList] = useState<string[]>([]);
+
+  // Plot / land listings have no bedrooms or bathrooms — think like an Indian constructor
+  const LAND_TYPES: PropertyType[] = ['plot', 'land'];
+  const isLand = LAND_TYPES.includes(propertyType);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
@@ -123,6 +127,9 @@ export const CreatePropertyModal: React.FC<CreatePropertyModalProps> = ({
         ? mediaList
         : ['https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=1200'];
 
+      const finalBedrooms = isLand ? 0 : Number(bedrooms);
+      const finalBathrooms = isLand ? 0 : Number(bathrooms);
+
       if (isEditing && editingProperty) {
         await api.updateProperty(editingProperty.id, {
           title,
@@ -130,8 +137,8 @@ export const CreatePropertyModal: React.FC<CreatePropertyModalProps> = ({
           price: Number(price),
           property_type: propertyType,
           listing_type: listingType,
-          bedrooms: Number(bedrooms),
-          bathrooms: Number(bathrooms),
+          bedrooms: finalBedrooms,
+          bathrooms: finalBathrooms,
           area_sqft: Number(areaSqft),
           location,
           city,
@@ -146,8 +153,8 @@ export const CreatePropertyModal: React.FC<CreatePropertyModalProps> = ({
             price: Number(price),
             property_type: propertyType,
             listing_type: listingType,
-            bedrooms: Number(bedrooms),
-            bathrooms: Number(bathrooms),
+            bedrooms: finalBedrooms,
+            bathrooms: finalBathrooms,
             area_sqft: Number(areaSqft),
             location,
             city,
@@ -256,17 +263,21 @@ export const CreatePropertyModal: React.FC<CreatePropertyModalProps> = ({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Bedrooms (BHK)</label>
-              <input type="number" value={bedrooms} onChange={(e) => setBedrooms(Number(e.target.value))}
-                className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs focus:ring-2 focus:ring-indigo-500" />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Bathrooms</label>
-              <input type="number" value={bathrooms} onChange={(e) => setBathrooms(Number(e.target.value))}
-                className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs focus:ring-2 focus:ring-indigo-500" />
-            </div>
+          <div className={`grid gap-3 ${isLand ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-2 md:grid-cols-4'}`}>
+            {!isLand && (
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Bedrooms (BHK)</label>
+                <input type="number" value={bedrooms} onChange={(e) => setBedrooms(Number(e.target.value))}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs focus:ring-2 focus:ring-indigo-500" />
+              </div>
+            )}
+            {!isLand && (
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Bathrooms</label>
+                <input type="number" value={bathrooms} onChange={(e) => setBathrooms(Number(e.target.value))}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs focus:ring-2 focus:ring-indigo-500" />
+              </div>
+            )}
             <div>
               <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Location / Locality</label>
               <input type="text" required value={location} onChange={(e) => setLocation(e.target.value)}
@@ -279,6 +290,11 @@ export const CreatePropertyModal: React.FC<CreatePropertyModalProps> = ({
                 placeholder="Mumbai"
                 className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs focus:ring-2 focus:ring-indigo-500" />
             </div>
+            {isLand && (
+              <div className="col-span-1 md:col-span-2 flex items-center gap-2 px-3 py-2 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-[11px] font-semibold">
+                <AlertCircle className="w-3.5 h-3.5 shrink-0" /> Plot / Land listings don’t require BHK or bathroom details.
+              </div>
+            )}
           </div>
 
           <div>

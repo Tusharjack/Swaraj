@@ -95,7 +95,9 @@ export const TokenPage: React.FC<TokenPageProps> = ({ currentUser, onOpenAuth })
 
   // ── Gift Coins modal state ──────────────────────────────────────────────
   const [showGiftModal, setGiftModal]     = useState(false);
+  const [giftMode,      setGiftMode]      = useState<'email' | 'phone'>('email');
   const [giftEmail,     setGiftEmail]     = useState('');
+  const [giftPhone,     setGiftPhone]     = useState('');
   const [giftAmount,    setGiftAmount]    = useState<number>(10);
   const [giftStep,      setGiftStep]      = useState<'input' | 'confirm'>('input');
   const [giftLoading,   setGiftLoading]   = useState(false);
@@ -140,6 +142,7 @@ export const TokenPage: React.FC<TokenPageProps> = ({ currentUser, onOpenAuth })
     setGiftModal(true);
     setGiftStep('input');
     setGiftEmail('');
+    setGiftPhone('');
     setGiftAmount(10);
     setGiftError('');
     setGiftSuccess('');
@@ -147,7 +150,11 @@ export const TokenPage: React.FC<TokenPageProps> = ({ currentUser, onOpenAuth })
 
   const handleGiftSubmit = async () => {
     setGiftError('');
-    if (!giftEmail.trim()) { setGiftError('Please enter your friend\u2019s registered email address.'); return; }
+    if (giftMode === 'email') {
+      if (!giftEmail.trim()) { setGiftError('Please enter your friend\u2019s registered email address.'); return; }
+    } else {
+      if (!giftPhone.trim()) { setGiftError('Please enter your friend\u2019s registered phone number.'); return; }
+    }
     if (!giftAmount || giftAmount <= 0) { setGiftError('Please enter a valid coin amount.'); return; }
     if (balance < giftAmount) { setGiftError(`Insufficient balance. You have ${balance} coins.`); return; }
     setGiftStep('confirm'); // move to confirmation step
@@ -157,7 +164,9 @@ export const TokenPage: React.FC<TokenPageProps> = ({ currentUser, onOpenAuth })
     setGiftLoading(true);
     setGiftError('');
     try {
-      const result = await api.giftCoins(giftEmail.trim(), giftAmount);
+      const result = giftMode === 'email'
+        ? await api.giftCoins(giftEmail.trim(), giftAmount)
+        : await api.giftCoinsByPhone(giftPhone.trim(), giftAmount);
       setGiftSuccess(`🎉 ${result.amount} coins sent to ${result.receiverName}!`);
       setGiftStep('input');
       setGiftModal(false);
@@ -681,19 +690,45 @@ export const TokenPage: React.FC<TokenPageProps> = ({ currentUser, onOpenAuth })
 
               {giftStep === 'input' ? (
                 <>
-                  {/* Email input */}
+                  {/* Recipient mode toggle: Email / Phone */}
+                  <div className="flex border border-slate-200 p-1 bg-slate-50 rounded-2xl text-xs font-semibold">
+                    <button
+                      type="button"
+                      onClick={() => { setGiftMode('email'); setGiftError(''); }}
+                      className={`flex-1 py-2 rounded-xl transition ${
+                        giftMode === 'email' ? 'bg-white text-emerald-700 shadow-sm font-bold' : 'text-slate-600'
+                      }`}
+                    >
+                      📧 By Email
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setGiftMode('phone'); setGiftError(''); }}
+                      className={`flex-1 py-2 rounded-xl transition ${
+                        giftMode === 'phone' ? 'bg-white text-emerald-700 shadow-sm font-bold' : 'text-slate-600'
+                      }`}
+                    >
+                      📱 By Phone
+                    </button>
+                  </div>
+
+                  {/* Recipient input */}
                   <div>
                     <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                      Friend's Registered Email Address
+                      {giftMode === 'email' ? "Friend's Registered Email Address" : "Friend's Registered Phone Number"}
                     </label>
                     <input
-                      type="email"
-                      value={giftEmail}
-                      onChange={e => setGiftEmail(e.target.value)}
-                      placeholder="friend@example.com"
+                      type={giftMode === 'email' ? 'email' : 'tel'}
+                      value={giftMode === 'email' ? giftEmail : giftPhone}
+                      onChange={e => giftMode === 'email' ? setGiftEmail(e.target.value) : setGiftPhone(e.target.value)}
+                      placeholder={giftMode === 'email' ? 'friend@example.com' : '+91 98765 43210'}
                       className="w-full px-4 py-3 rounded-2xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
                     />
-                    <p className="text-[11px] text-slate-400 mt-1">Your friend must be registered on IndoProperty.</p>
+                    <p className="text-[11px] text-slate-400 mt-1">
+                      {giftMode === 'email'
+                        ? 'Your friend must be registered on IndoProperty.'
+                        : 'Enter the phone number your friend used to register on IndoProperty.'}
+                    </p>
                   </div>
 
                   {/* Amount input */}
@@ -752,7 +787,7 @@ export const TokenPage: React.FC<TokenPageProps> = ({ currentUser, onOpenAuth })
                   <div>
                     <p className="text-sm text-slate-500">You are about to send</p>
                     <p className="text-3xl font-black text-slate-900 mt-1">{giftAmount} coins</p>
-                    <p className="text-sm text-slate-500 mt-1">to <span className="font-bold text-slate-700">{giftEmail}</span></p>
+                    <p className="text-sm text-slate-500 mt-1">to <span className="font-bold text-slate-700">{giftMode === 'email' ? giftEmail : giftPhone}</span></p>
                   </div>
                   <div className="bg-amber-50 border border-amber-200 rounded-2xl p-3 text-xs text-amber-800 font-medium">
                     After sending, you'll have <span className="font-black">{(balance - giftAmount).toLocaleString()}</span> coins left.

@@ -19,6 +19,17 @@ export function initAuthStorage() {
 }
 
 // ---------------------------------------------------------------------------
+// Phone number helper — Supabase Phone Auth expects E.164 (e.g. +919876543210)
+// ---------------------------------------------------------------------------
+function normalizePhone(phone: string): string {
+  const trimmed = (phone || '').trim();
+  if (!trimmed) return '';
+  const hasPlus = trimmed.startsWith('+');
+  const digits = trimmed.replace(/\D/g, '');
+  return hasPlus ? `+${digits}` : digits;
+}
+
+// ---------------------------------------------------------------------------
 // AUTH SERVICE
 // ---------------------------------------------------------------------------
 
@@ -448,6 +459,63 @@ export const authService = {
       return { success: true };
     } catch (err: any) {
       return { success: false, error: err?.message || 'Could not update your password. Please try again.' };
+    }
+  },
+
+  // ── Phone OTP (Supabase Phone Auth) ───────────────────────────────────────
+  // Used by the "Forgot password → OTP on mobile" flow. Requires the "Phone"
+  // provider + an SMS provider (Twilio / MSG91 / Vonage) to be enabled in
+  // Supabase Dashboard → Authentication → Providers, and the mobile number to
+  // already be linked to the user's auth account.
+
+  /**
+   * Sends a 6-digit OTP to the given mobile number via Supabase Phone Auth.
+   * `shouldCreateUser: false` makes sure an unknown number never silently
+   * creates a brand-new account during a password reset.
+   */
+  async sendPhoneOtp(phone: string): Promise<{ success: boolean; error?: string }> {
+    const cleanPhone = normalizePhone(phone);
+    if (cleanPhone.replace(/\D/g, '').length < 10) {
+      return { success: false, error: 'Enter a valid mobile number with country code (e.g. +91 98765 43210).' };
+    }
+    if (!isSupabaseConfigured) {
+      return { success: false, error: 'Mobile OTP is only available when Supabase is configured.' };
+    }
+    try {
+      const { error } = await supabase.auth.signInWithOtp({
+        phone: cleanPhone,
+        options: { shouldCreateUser: false },
+      });
+      if (error) return { success: false, error: error.message };
+      return { success: true };
+    } catch (err: any) {
+      return { success: false, error: err?.message || 'Could not send the OTP. Please try again.' };
+    }
+  },
+
+  /**
+   * Verifies the OTP. On success Supabase establishes a session for the user,
+   * which lets the caller then invoke updatePassword() to set a new password.
+   */
+  async verifyPhoneOtp(phone: string, token: string): Promise<{ success: boolean; error?: string }> {
+    const cleanPhone = normalizePhone(phone);
+    const cleanToken = (token || '').replace(/\D/g, '');
+    if (cleanToken.length < 4) {
+      return { success: false, error: 'Enter the OTP code we sent to your mobile number.' };
+    }
+    if (!isSupabaseConfigured) {
+      return { success: false, error: 'Mobile OTP is only available when Supabase is configured.' };
+    }
+    try {
+      const { error } = await supabase.auth.verifyOtp({
+        phone: cleanPhone,
+        token: cleanToken,
+        type: 'sms',
+      });
+      if (error) return { success: false, error: error.message };
+      return { success: true };
+    } catch (err: any) {
+      return { success: false, error: err?.message || 'Could not verify the OTP. Please try again.' };
     }
   },
 

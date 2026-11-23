@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Film, Upload, Link as LinkIcon, CheckCircle2, Video, Clock } from 'lucide-react';
+import { Film, Upload, Link as LinkIcon, CheckCircle2, Video, Clock, Image as ImageIcon } from 'lucide-react';
 import { api } from '../services/api';
 import { uploadToCloudinary } from '../lib/cloudinary';
 import type { Profile, Property, Reel } from '../types/database';
@@ -24,6 +24,9 @@ export const CreateReelModal: React.FC<CreateReelModalProps> = ({
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [videoPreviewUrl, setVideoPreviewUrl] = useState<string>('');
   const [selectedPropertyId, setSelectedPropertyId] = useState<string>('');
+  const [thumbnailUrl, setThumbnailUrl] = useState<string>('');
+  const [, setThumbnailFile] = useState<File | null>(null);
+  const [uploadingThumb, setUploadingThumb] = useState(false);
   const [uploadMode, setUploadMode] = useState<'file' | 'url'>('file');
   const [loading, setLoading] = useState(false);
   const [uploadingProgress, setUploadingProgress] = useState(false);
@@ -42,6 +45,23 @@ export const CreateReelModal: React.FC<CreateReelModalProps> = ({
       setVideoFile(file);
       const objectUrl = URL.createObjectURL(file);
       setVideoPreviewUrl(objectUrl);
+    }
+  };
+
+  const handleThumbnailFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || !e.target.files[0]) return;
+    const file = e.target.files[0];
+    setThumbnailFile(file);
+    setUploadingThumb(true);
+    try {
+      const url = await uploadToCloudinary('thumbs', file);
+      setThumbnailUrl(url);
+    } catch (err: any) {
+      console.error('Thumbnail upload error:', err);
+      setErrorMsg(err?.message || 'Thumbnail upload failed. You can also paste an image URL.');
+    } finally {
+      setUploadingThumb(false);
+      e.target.value = '';
     }
   };
 
@@ -84,6 +104,7 @@ export const CreateReelModal: React.FC<CreateReelModalProps> = ({
         title,
         caption,
         video_url: finalVideoUrl,
+        thumbnail_url: thumbnailUrl || undefined,
         property_id: selectedPropertyId || undefined,
       });
 
@@ -92,6 +113,8 @@ export const CreateReelModal: React.FC<CreateReelModalProps> = ({
       setVideoFile(null);
       setVideoPreviewUrl('');
       setSelectedPropertyId('');
+      setThumbnailUrl('');
+      setThumbnailFile(null);
 
       onSuccess(createdReel);
       onClose();
@@ -215,6 +238,41 @@ export const CreateReelModal: React.FC<CreateReelModalProps> = ({
               />
             </div>
           )}
+
+          {/* Thumbnail / Preview Picture — shown in the reel grid & share preview */}
+          <div className="space-y-2">
+            <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider">
+              Reel Preview Picture (Thumbnail)
+            </label>
+            <div className="flex gap-2">
+              <div className={`relative flex-1 border-2 border-dashed rounded-xl p-3 text-center transition cursor-pointer flex items-center justify-center gap-2 text-xs font-bold
+                ${uploadingThumb ? 'border-purple-400 bg-purple-100 text-purple-400' : 'border-purple-200 hover:border-purple-500 bg-purple-50/40 text-purple-700'}`}>
+                <input
+                  type="file" accept="image/*"
+                  onChange={handleThumbnailFileChange}
+                  disabled={uploadingThumb}
+                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                />
+                <ImageIcon className="w-4 h-4 text-purple-600" />
+                {uploadingThumb ? 'Uploading thumbnail…' : 'Upload Preview Image'}
+              </div>
+              <input
+                type="url"
+                value={thumbnailUrl}
+                onChange={(e) => setThumbnailUrl(e.target.value)}
+                placeholder="Or paste image URL"
+                className="flex-1 px-3 py-2 rounded-xl border border-slate-300 text-xs focus:ring-2 focus:ring-purple-500"
+              />
+            </div>
+            {thumbnailUrl && (
+              <div className="flex items-center gap-2">
+                <img src={thumbnailUrl} alt="Reel thumbnail preview" className="w-16 h-20 object-cover rounded-lg border" />
+                <span className="text-[11px] text-emerald-600 font-bold flex items-center gap-1">
+                  <CheckCircle2 className="w-3.5 h-3.5" /> Preview picture set — this is what people see before the reel plays.
+                </span>
+              </div>
+            )}
+          </div>
 
           <div>
             <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">

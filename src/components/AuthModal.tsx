@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { LogIn, UserPlus, Shield, Sparkles, Lock, Eye, EyeOff, AlertCircle, Key, ArrowLeft, CheckCircle2, Gift } from 'lucide-react';
+import { LogIn, UserPlus, Shield, Sparkles, Lock, Eye, EyeOff, AlertCircle, Key, ArrowLeft, CheckCircle2, Gift, Smartphone } from 'lucide-react';
 import { api } from '../services/api';
 import type { Profile, UserRole, ProfessionalType } from '../types/database';
 
@@ -37,6 +37,17 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [resetMsg, setResetMsg] = useState('');
   const [resetLoading, setResetLoading] = useState(false);
 
+  // ── Mobile OTP password-reset flow (Supabase Phone Auth) ──────────────────
+  const [phoneResetOpen, setPhoneResetOpen] = useState(false);
+  const [otpPhone, setOtpPhone] = useState('');
+  const [otpCode, setOtpCode] = useState('');
+  const [otpStage, setOtpStage] = useState<'phone' | 'code' | 'password' | 'done'>('phone');
+  const [otpNewPassword, setOtpNewPassword] = useState('');
+  const [otpConfirmPassword, setOtpConfirmPassword] = useState('');
+  const [otpLoading, setOtpLoading] = useState(false);
+  const [otpMsg, setOtpMsg] = useState('');
+  const [otpErr, setOtpErr] = useState('');
+
   useEffect(() => {
     // Check for referral code in URL query params (?ref=IP-XXXXXX)
     const params = new URLSearchParams(window.location.search);
@@ -61,6 +72,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     setErrorMsg('');
     setNeedsEmailConfirmation(false);
     setResetSent(false);
+    setPhoneResetOpen(false);
+    setOtpStage('phone');
+    setOtpPhone('');
+    setOtpCode('');
+    setOtpNewPassword('');
+    setOtpConfirmPassword('');
+    setOtpMsg('');
+    setOtpErr('');
   }, [mode, isOpen]);
 
   if (!isOpen) return null;
@@ -110,6 +129,85 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       }
     } finally {
       setResetLoading(false);
+    }
+  };
+
+  // ── Mobile OTP reset: step 1 — send the OTP ───────────────────────────────
+  const handleSendOtp = async () => {
+    setOtpErr('');
+    setOtpMsg('');
+    const v = otpPhone.trim();
+    if (v.replace(/\D/g, '').length < 10) {
+      setOtpErr('Enter a valid mobile number with country code (e.g. +91 98765 43210).');
+      return;
+    }
+    setOtpLoading(true);
+    try {
+      const { success, error } = await api.sendPhoneOtp(v);
+      if (success) {
+        setOtpStage('code');
+        setOtpMsg(`We sent a 6-digit OTP to ${v}. It may take up to a minute to arrive.`);
+      } else {
+        setOtpErr(friendlyAuthError(error || 'Could not send the OTP. Please try again.'));
+      }
+    } catch (err: any) {
+      setOtpErr(friendlyAuthError(err?.message || 'Could not send the OTP. Please try again.'));
+    } finally {
+      setOtpLoading(false);
+    }
+  };
+
+  // ── Mobile OTP reset: step 2 — verify the OTP ─────────────────────────────
+  const handleVerifyOtp = async () => {
+    setOtpErr('');
+    setOtpMsg('');
+    if (otpCode.replace(/\D/g, '').length < 4) {
+      setOtpErr('Enter the OTP code you received.');
+      return;
+    }
+    setOtpLoading(true);
+    try {
+      const { success, error } = await api.verifyPhoneOtp(otpPhone.trim(), otpCode.trim());
+      if (success) {
+        setOtpStage('password');
+        setOtpMsg('Mobile number verified. Set your new password below.');
+      } else {
+        setOtpErr(friendlyAuthError(error || 'Incorrect or expired OTP. Please try again.'));
+      }
+    } catch (err: any) {
+      setOtpErr(friendlyAuthError(err?.message || 'Could not verify the OTP. Please try again.'));
+    } finally {
+      setOtpLoading(false);
+    }
+  };
+
+  // ── Mobile OTP reset: step 3 — save the new password ──────────────────────
+  const handleSaveNewPassword = async () => {
+    setOtpErr('');
+    setOtpMsg('');
+    if (otpNewPassword.length < 6) {
+      setOtpErr('Password must be at least 6 characters.');
+      return;
+    }
+    if (otpNewPassword !== otpConfirmPassword) {
+      setOtpErr('Passwords do not match.');
+      return;
+    }
+    setOtpLoading(true);
+    try {
+      const { success, error } = await api.updatePassword(otpNewPassword);
+      if (success) {
+        // Sign out so the user returns to the login screen and signs in fresh
+        await api.logout().catch(() => {});
+        setOtpStage('done');
+        setOtpMsg('Password updated successfully. You can now sign in with your new password.');
+      } else {
+        setOtpErr(friendlyAuthError(error || 'Could not update your password. Please try again.'));
+      }
+    } catch (err: any) {
+      setOtpErr(friendlyAuthError(err?.message || 'Could not update your password. Please try again.'));
+    } finally {
+      setOtpLoading(false);
     }
   };
 
@@ -280,6 +378,166 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 Go to Sign In
               </button>
             </div>
+          ) : phoneResetOpen ? (
+            /* ── Mobile OTP password reset ─────────────────────────────────── */
+            <div className="space-y-4">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-2xl bg-emerald-100 flex items-center justify-center shrink-0">
+                  <Smartphone className="w-5 h-5 text-emerald-600" />
+                </div>
+                <div>
+                  <h4 className="font-bold text-slate-900 text-sm">Reset password with Mobile OTP</h4>
+                  <p className="text-[11px] text-slate-500">We&apos;ll text a 6-digit code to your registered mobile number.</p>
+                </div>
+              </div>
+
+              {otpErr && (
+                <div className="p-3 rounded-xl text-xs font-medium border bg-rose-50 border-rose-200 text-rose-700">
+                  <div className="flex items-start gap-2">
+                    <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-rose-400" />
+                    <p>{otpErr}</p>
+                  </div>
+                </div>
+              )}
+              {otpMsg && !otpErr && (
+                <div className="p-3 rounded-xl text-xs font-medium border bg-emerald-50 border-emerald-200 text-emerald-800">
+                  <div className="flex items-start gap-2">
+                    <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5 text-emerald-500" />
+                    <p>{otpMsg}</p>
+                  </div>
+                </div>
+              )}
+
+              {otpStage === 'phone' && (
+                <>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                      Registered Mobile Number
+                    </label>
+                    <input
+                      type="tel"
+                      value={otpPhone}
+                      onChange={(e) => setOtpPhone(e.target.value)}
+                      placeholder="+91 98765 43210"
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    />
+                    <p className="text-[10px] text-slate-400 mt-1">Include the country code, e.g. +91 for India.</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleSendOtp}
+                    disabled={otpLoading}
+                    className="w-full py-3 px-4 font-extrabold rounded-2xl shadow-lg transition flex items-center justify-center gap-2 text-sm bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white disabled:opacity-50 cursor-pointer"
+                  >
+                    {otpLoading ? (
+                      <span className="inline-block animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></span>
+                    ) : (
+                      <><Smartphone className="w-5 h-5" /> Send OTP</>
+                    )}
+                  </button>
+                </>
+              )}
+
+              {otpStage === 'code' && (
+                <>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                      Enter 6-digit OTP
+                    </label>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      maxLength={6}
+                      value={otpCode}
+                      onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
+                      placeholder="• • • • • •"
+                      className="w-full px-3.5 py-3 rounded-xl border border-slate-300 text-center text-lg font-mono tracking-[0.4em] focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleVerifyOtp}
+                    disabled={otpLoading}
+                    className="w-full py-3 px-4 font-extrabold rounded-2xl shadow-lg transition flex items-center justify-center gap-2 text-sm bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white disabled:opacity-50 cursor-pointer"
+                  >
+                    {otpLoading ? (
+                      <span className="inline-block animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></span>
+                    ) : (
+                      <><CheckCircle2 className="w-5 h-5" /> Verify OTP</>
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSendOtp}
+                    disabled={otpLoading}
+                    className="w-full text-[11px] font-bold text-emerald-600 hover:text-emerald-800 transition disabled:opacity-50 cursor-pointer"
+                  >
+                    Didn&apos;t get it? Resend OTP
+                  </button>
+                </>
+              )}
+
+              {otpStage === 'password' && (
+                <>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                      New Password
+                    </label>
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      value={otpNewPassword}
+                      onChange={(e) => setOtpNewPassword(e.target.value)}
+                      placeholder="••••••••"
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                      Confirm New Password
+                    </label>
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      value={otpConfirmPassword}
+                      onChange={(e) => setOtpConfirmPassword(e.target.value)}
+                      placeholder="••••••••"
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleSaveNewPassword}
+                    disabled={otpLoading}
+                    className="w-full py-3 px-4 font-extrabold rounded-2xl shadow-lg transition flex items-center justify-center gap-2 text-sm bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white disabled:opacity-50 cursor-pointer"
+                  >
+                    {otpLoading ? (
+                      <span className="inline-block animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></span>
+                    ) : (
+                      <><Lock className="w-5 h-5" /> Update Password</>
+                    )}
+                  </button>
+                </>
+              )}
+
+              {otpStage === 'done' && (
+                <button
+                  type="button"
+                  onClick={() => { setPhoneResetOpen(false); setMode('login'); }}
+                  className="w-full py-3 px-4 font-extrabold rounded-2xl shadow-lg transition flex items-center justify-center gap-2 text-sm bg-indigo-600 hover:bg-indigo-700 text-white cursor-pointer"
+                >
+                  <LogIn className="w-5 h-5" /> Back to Sign In
+                </button>
+              )}
+
+              {otpStage !== 'done' && (
+                <button
+                  type="button"
+                  onClick={() => { setPhoneResetOpen(false); setOtpErr(''); setOtpMsg(''); }}
+                  className="w-full text-[11px] font-semibold text-slate-500 hover:text-slate-800 transition flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5" /> Back to Sign In
+                </button>
+              )}
+            </div>
           ) : (
             <>
               {errorMsg && (
@@ -419,14 +677,24 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       {isAdminMode ? 'Master Security Password' : 'Password'}
                     </label>
                     {!isAdminMode && (
-                      <button
-                        type="button"
-                        onClick={handleForgotPassword}
-                        disabled={resetLoading}
-                        className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 transition disabled:opacity-50 cursor-pointer"
-                      >
-                        {resetLoading ? 'Sending…' : 'Forgot password?'}
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={handleForgotPassword}
+                          disabled={resetLoading}
+                          className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 transition disabled:opacity-50 cursor-pointer"
+                        >
+                          {resetLoading ? 'Sending…' : 'Forgot password?'}
+                        </button>
+                        <span className="text-slate-300 text-[11px]">·</span>
+                        <button
+                          type="button"
+                          onClick={() => { setPhoneResetOpen(true); setOtpErr(''); setOtpMsg(''); }}
+                          className="text-[11px] font-bold text-emerald-600 hover:text-emerald-800 transition flex items-center gap-1 cursor-pointer"
+                        >
+                          <Smartphone className="w-3 h-3" /> OTP on mobile
+                        </button>
+                      </div>
                     )}
                   </div>
                   <div className="relative">

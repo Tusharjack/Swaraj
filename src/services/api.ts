@@ -9,6 +9,7 @@ import { pushService } from './pushService';
 import { tokenService } from './tokenService';
 import { loanService } from './loanService';
 import { referralService } from './referralService';
+import { adService } from './adService';
 import { getValidUuid, idsEqual, getLastError, setLastError } from './storage';
 import { SEED_PROFILES, SEED_PROPERTIES, SEED_REELS } from './seedData';
 
@@ -31,6 +32,8 @@ export const api = {
   deleteAccount: authService.deleteAccount.bind(authService),
   sendPasswordReset: authService.sendPasswordReset.bind(authService),
   updatePassword: authService.updatePassword.bind(authService),
+  sendPhoneOtp: authService.sendPhoneOtp.bind(authService),
+  verifyPhoneOtp: authService.verifyPhoneOtp.bind(authService),
   onAuthStateChange: authService.onAuthStateChange.bind(authService),
   listMfaFactors: authService.listMfaFactors.bind(authService),
   enrollTotp: authService.enrollTotp.bind(authService),
@@ -113,6 +116,7 @@ export const api = {
   adminAdjustTokens:      tokenService.adminAdjustTokens.bind(tokenService),
   spendTokensForPromotion:tokenService.spendTokensForPromotion.bind(tokenService),
   giftCoins:              tokenService.giftCoins.bind(tokenService),
+  giftCoinsByPhone:       tokenService.giftCoinsByPhone.bind(tokenService),
   redeemForFeature:       tokenService.redeemForFeature.bind(tokenService),
   redeemForBoost:         tokenService.redeemForBoost.bind(tokenService),
   getPlatformSettings:    tokenService.getPlatformSettings.bind(tokenService),
@@ -132,6 +136,13 @@ export const api = {
   applyReferralCode:      referralService.applyReferralCode.bind(referralService),
   getAllReferrals:         referralService.getAllReferrals.bind(referralService),
   invalidateReferral:     referralService.invalidateReferral.bind(referralService),
+
+  // ── Ad Banners ────────────────────────────────────────────────────────────
+  getActiveAds:          adService.getActiveAds.bind(adService),
+  getAllAds:             adService.getAllAds.bind(adService),
+  createAd:              adService.createAd.bind(adService),
+  toggleAdActive:        adService.toggleAdActive.bind(adService),
+  deleteAd:              adService.deleteAd.bind(adService),
 };
 
 export { getValidUuid, idsEqual, SEED_PROFILES, SEED_PROPERTIES, SEED_REELS, getLastError as getLastApiError, setLastError as setLastApiError };

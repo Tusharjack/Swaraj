@@ -4,6 +4,7 @@ import { Navbar } from './components/Navbar';
 import { BottomNav } from './components/BottomNav';
 import { PropertyCard } from './components/PropertyCard';
 import { PropertySearchFilter } from './components/PropertySearchFilter';
+import { AdBanner } from './components/AdBanner';
 import type { FilterState } from './components/PropertySearchFilter';
 import { PropertyDetailModal } from './components/PropertyDetailModal';
 import { EnquiryModal } from './components/EnquiryModal';
@@ -414,6 +415,11 @@ export function App() {
                   <span>{c.label}</span>
                 </button>
               ))}
+            </div>
+
+            {/* Admin-created ad banner strip */}
+            <div className="mt-4">
+              <AdBanner />
             </div>
           </div>
         </section>

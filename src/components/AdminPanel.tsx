@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
-import { ShieldAlert, Users, Building, Film, AlertTriangle, ShieldCheck, RefreshCw, Trash2, Key, RotateCcw, Mail, Coins, Home, UserPlus, Search, Filter, Landmark, CheckCircle2 } from 'lucide-react';
-import type { Profile, Property, Reel, Report, Enquiry, UserRole, TokenTransaction, TokenWallet, HomeLoanApplication, Referral } from '../types/database';
+import React, { useState, useEffect, useRef } from 'react';
+import { ShieldAlert, Users, Building, Film, AlertTriangle, ShieldCheck, RefreshCw, Trash2, Key, RotateCcw, Mail, Coins, Home, UserPlus, Search, Filter, Landmark, CheckCircle2, Megaphone, Upload, Loader2 } from 'lucide-react';
+import type { Profile, Property, Reel, Report, Enquiry, UserRole, TokenTransaction, TokenWallet, HomeLoanApplication, Referral, Ad } from '../types/database';
 import { api, SEED_PROFILES } from '../services/api';
+import { uploadToCloudinary } from '../lib/cloudinary';
 
 export const AdminPanel: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'users' | 'properties' | 'reels' | 'reports' | 'enquiries' | 'credentials' | 'tokens' | 'loans' | 'referrals'>('enquiries');
+  const [activeTab, setActiveTab] = useState<'users' | 'properties' | 'reels' | 'reports' | 'enquiries' | 'credentials' | 'tokens' | 'loans' | 'referrals' | 'ads'>('enquiries');
   const [users, setUsers] = useState<Profile[]>([]);
   const [properties, setProperties] = useState<Property[]>([]);
   const [reels, setReels] = useState<Reel[]>([]);
@@ -14,8 +15,18 @@ export const AdminPanel: React.FC = () => {
   const [wallets, setWallets] = useState<TokenWallet[]>([]);
   const [loanApps, setLoanApps] = useState<HomeLoanApplication[]>([]);
   const [referrals, setReferrals] = useState<Referral[]>([]);
+  const [ads, setAds] = useState<Ad[]>([]);
   const [loanStats, setLoanStats] = useState<{ total:number; submitted:number; under_review:number; approved:number; disbursed:number; rejected:number; total_requested:number; total_approved:number; total_disbursed:number } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Ad creation form
+  const [newAdTitle, setNewAdTitle] = useState('');
+  const [newAdImage, setNewAdImage] = useState('');
+  const [newAdLink, setNewAdLink] = useState('');
+  const [newAdOrder, setNewAdOrder] = useState<number>(0);
+  const [adSaving, setAdSaving] = useState(false);
+  const [adImageUploading, setAdImageUploading] = useState(false);
+  const adFileInputRef = useRef<HTMLInputElement | null>(null);
 
   // Filter states
   const [loanFilter, setLoanFilter] = useState<'all' | 'submitted' | 'under_review' | 'approved' | 'disbursed' | 'rejected'>('all');
@@ -59,6 +70,9 @@ export const AdminPanel: React.FC = () => {
       setLoanApps(allLoans);
       setReferrals(allRefs);
       setLoanStats(stats);
+
+      // Ads are loaded separately (table may not exist in older DBs)
+      try { setAds(await api.getAllAds()); } catch (_e) { setAds([]); }
     } finally {
       setIsLoading(false);
     }
@@ -145,6 +159,71 @@ export const AdminPanel: React.FC = () => {
         console.error('Delete enquiry error:', err);
         loadAdminData();
       }
+    }
+  };
+
+  // ── Ad handlers ──────────────────────────────────────────────────────────
+  // Upload the picked banner image to Cloudinary and store the returned URL.
+  const handleAdImageUpload = async (file: File | undefined) => {
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      alert('Please choose an image file (JPG, PNG or WEBP).');
+      return;
+    }
+    setAdImageUploading(true);
+    try {
+      const url = await uploadToCloudinary('ads', file);
+      setNewAdImage(url);
+    } catch (err: any) {
+      alert(err?.message || 'Image upload failed. Please try again.');
+    } finally {
+      setAdImageUploading(false);
+      if (adFileInputRef.current) adFileInputRef.current.value = '';
+    }
+  };
+
+  const handleCreateAd = async () => {
+    if (!newAdTitle.trim() || !newAdImage.trim()) {
+      alert('Please provide both an ad title and a banner image.');
+      return;
+    }
+    setAdSaving(true);
+    try {
+      await api.createAd({
+        title: newAdTitle.trim(),
+        image_url: newAdImage.trim(),
+        link_url: newAdLink.trim() || undefined,
+        display_order: Number(newAdOrder) || 0,
+        is_active: true,
+      });
+      setNewAdTitle('');
+      setNewAdImage('');
+      setNewAdLink('');
+      setNewAdOrder(0);
+      loadAdminData();
+    } catch (err: any) {
+      alert(err?.message || 'Failed to create ad.');
+    } finally {
+      setAdSaving(false);
+    }
+  };
+
+  const handleToggleAd = async (id: string) => {
+    try {
+      await api.toggleAdActive(id);
+      loadAdminData();
+    } catch (err: any) {
+      alert(err?.message || 'Failed to update ad.');
+    }
+  };
+
+  const handleDeleteAd = async (id: string) => {
+    if (!confirm('Delete this ad permanently?')) return;
+    try {
+      await api.deleteAd(id);
+      loadAdminData();
+    } catch (err: any) {
+      alert(err?.message || 'Failed to delete ad.');
     }
   };
 
@@ -301,6 +380,9 @@ export const AdminPanel: React.FC = () => {
           </button>
           <button onClick={() => setActiveTab('referrals')} className={`flex-1 py-3.5 px-4 text-center border-b-2 transition flex items-center justify-center gap-2 ${activeTab==='referrals'?'border-purple-600 text-purple-700 bg-white font-extrabold':'border-transparent text-slate-600 hover:text-slate-900'}`}>
             <UserPlus className="w-4 h-4 text-emerald-500" /> Referrals ({referrals.length})
+          </button>
+          <button onClick={() => setActiveTab('ads')} className={`flex-1 py-3.5 px-4 text-center border-b-2 transition flex items-center justify-center gap-2 ${activeTab==='ads'?'border-purple-600 text-purple-700 bg-white font-extrabold':'border-transparent text-slate-600 hover:text-slate-900'}`}>
+            <Megaphone className="w-4 h-4 text-rose-500" /> Ad Banners ({ads.length})
           </button>
         </div>
 
@@ -1307,6 +1389,142 @@ export const AdminPanel: React.FC = () => {
                     )}
                   </tbody>
                 </table>
+              </div>
+            </div>
+          )}
+
+          {/* TAB: AD BANNERS */}
+          {activeTab === 'ads' && (
+            <div className="space-y-6">
+              {/* Create Ad form */}
+              <div className="bg-gradient-to-br from-rose-50 to-amber-50 border border-rose-200 rounded-2xl p-5">
+                <h3 className="font-bold text-sm text-slate-900 mb-3 flex items-center gap-2">
+                  <Megaphone className="w-4 h-4 text-rose-500" /> Create New Ad Banner
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-700 uppercase mb-1">Ad Title</label>
+                    <input
+                      type="text"
+                      value={newAdTitle}
+                      onChange={(e) => setNewAdTitle(e.target.value)}
+                      placeholder="e.g. 50% Off Site Visit This Week"
+                      className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs focus:ring-2 focus:ring-rose-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-700 uppercase mb-1">Banner Image</label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="url"
+                        value={newAdImage}
+                        onChange={(e) => setNewAdImage(e.target.value)}
+                        placeholder="Upload an image or paste a URL"
+                        className="flex-1 min-w-0 px-3 py-2 rounded-xl border border-slate-300 text-xs focus:ring-2 focus:ring-rose-500 font-mono"
+                      />
+                      <input
+                        ref={adFileInputRef}
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => handleAdImageUpload(e.target.files?.[0])}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => adFileInputRef.current?.click()}
+                        disabled={adImageUploading}
+                        className="px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl shadow transition disabled:opacity-50 flex items-center gap-1.5 shrink-0 cursor-pointer"
+                      >
+                        {adImageUploading ? (
+                          <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Uploading…</>
+                        ) : (
+                          <><Upload className="w-3.5 h-3.5" /> Upload</>
+                        )}
+                      </button>
+                    </div>
+                    <p className="text-[10px] text-slate-400 mt-1">Upload from your device (stored on Cloudinary) or paste an image URL.</p>
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-700 uppercase mb-1">Link URL (optional)</label>
+                    <input
+                      type="url"
+                      value={newAdLink}
+                      onChange={(e) => setNewAdLink(e.target.value)}
+                      placeholder="https://...landing-page"
+                      className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs focus:ring-2 focus:ring-rose-500 font-mono"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-700 uppercase mb-1">Display Order</label>
+                    <input
+                      type="number"
+                      value={newAdOrder}
+                      onChange={(e) => setNewAdOrder(Number(e.target.value))}
+                      className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs focus:ring-2 focus:ring-rose-500"
+                    />
+                  </div>
+                </div>
+                <div className="mt-3 flex items-center gap-3">
+                  {newAdImage && (
+                    <img src={newAdImage} alt="Ad preview" className="w-24 h-14 object-cover rounded-lg border" />
+                  )}
+                  <button
+                    onClick={handleCreateAd}
+                    disabled={adSaving || adImageUploading}
+                    className="px-5 py-2.5 bg-gradient-to-r from-rose-500 to-amber-500 text-white text-xs font-bold rounded-xl shadow hover:shadow-lg transition disabled:opacity-50"
+                  >
+                    {adSaving ? 'Creating…' : '+ Publish Ad Banner'}
+                  </button>
+                  <span className="text-[11px] text-slate-500">Active ads appear as a horizontal banner on the home page.</span>
+                </div>
+              </div>
+
+              {/* Ads list */}
+              <div>
+                <h3 className="font-bold text-sm text-slate-900 mb-3">All Ads ({ads.length})</h3>
+                {ads.length === 0 ? (
+                  <div className="text-center py-12 text-slate-400 text-xs">No ads created yet.</div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {ads.map((ad) => (
+                      <div key={ad.id} className="bg-white border border-slate-200 rounded-2xl p-3 shadow-sm flex gap-3">
+                        <img src={ad.image_url} alt={ad.title} className="w-24 h-16 object-cover rounded-lg shrink-0 border" />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <p className="text-xs font-bold text-slate-900 truncate">{ad.title}</p>
+                            <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase shrink-0 ${ad.is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
+                              {ad.is_active ? 'Active' : 'Hidden'}
+                            </span>
+                          </div>
+                          {ad.link_url && (
+                            <a href={ad.link_url} target="_blank" rel="noopener noreferrer" className="text-[10px] text-indigo-600 hover:underline truncate block">
+                              {ad.link_url}
+                            </a>
+                          )}
+                          <div className="flex items-center gap-2 mt-1.5">
+                            <button
+                              onClick={() => handleToggleAd(ad.id)}
+                              className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition ${
+                                ad.is_active
+                                  ? 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                                  : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200'
+                              }`}
+                            >
+                              {ad.is_active ? 'Hide' : 'Show'}
+                            </button>
+                            <button
+                              onClick={() => handleDeleteAd(ad.id)}
+                              className="px-2.5 py-1 bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200 rounded-lg text-[10px] font-bold transition flex items-center gap-1"
+                            >
+                              <Trash2 className="w-3 h-3" /> Delete
+                            </button>
+                            <span className="text-[10px] text-slate-400 ml-auto">order: {ad.display_order}</span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           )}

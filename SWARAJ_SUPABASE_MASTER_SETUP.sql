@@ -270,6 +270,19 @@ CREATE TABLE IF NOT EXISTS public.reports (
 );
 
 -- ---------------------------------------------------------------------------
+-- 15b. AD BANNERS (horizontal home-page ads, managed by admins)
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.ads (
+  id            UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  title         TEXT        NOT NULL,
+  image_url     TEXT        NOT NULL,
+  link_url      TEXT,
+  is_active     BOOLEAN     NOT NULL DEFAULT TRUE,
+  display_order INTEGER     NOT NULL DEFAULT 0
+);
+
+-- ---------------------------------------------------------------------------
 -- 16. INDEXES
 -- ---------------------------------------------------------------------------
 CREATE INDEX IF NOT EXISTS idx_properties_owner    ON public.properties(owner_id);
@@ -284,6 +297,7 @@ CREATE INDEX IF NOT EXISTS idx_reels_status        ON public.reels(status);
 CREATE INDEX IF NOT EXISTS idx_reels_created       ON public.reels(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_enquiries_recipient ON public.enquiries(recipient_id);
 CREATE INDEX IF NOT EXISTS idx_enquiries_sender    ON public.enquiries(sender_id);
+CREATE INDEX IF NOT EXISTS idx_ads_active_order    ON public.ads(is_active, display_order);
 
 -- ---------------------------------------------------------------------------
 -- 17. AUTO-CREATE PROFILE TRIGGER
@@ -807,6 +821,7 @@ ALTER TABLE public.token_wallets ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.token_transactions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.loan_applications ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.referrals ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.ads ENABLE ROW LEVEL SECURITY;
 
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'wallets_select' AND tablename = 'token_wallets') THEN
@@ -862,6 +877,26 @@ DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'referrals_admin_all' AND tablename = 'referrals') THEN
     CREATE POLICY "referrals_admin_all" ON public.referrals
       FOR ALL USING (public.is_admin(auth.uid()));
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'ads_select_all' AND tablename = 'ads') THEN
+    CREATE POLICY "ads_select_all" ON public.ads
+      FOR SELECT USING (true);
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'ads_admin_insert' AND tablename = 'ads') THEN
+    CREATE POLICY "ads_admin_insert" ON public.ads
+      FOR INSERT WITH CHECK (public.is_admin(auth.uid()));
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'ads_admin_update' AND tablename = 'ads') THEN
+    CREATE POLICY "ads_admin_update" ON public.ads
+      FOR UPDATE USING (public.is_admin(auth.uid()));
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'ads_admin_delete' AND tablename = 'ads') THEN
+    CREATE POLICY "ads_admin_delete" ON public.ads
+      FOR DELETE USING (public.is_admin(auth.uid()));
   END IF;
 
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'loan_doc_select' AND tablename = 'objects') THEN
