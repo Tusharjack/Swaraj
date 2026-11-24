@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { DeleteAccountPage } from './components/DeleteAccountPage';
+import { ReelLandingPage } from './components/ReelLandingPage';
 import { Navbar } from './components/Navbar';
 import { BottomNav } from './components/BottomNav';
 import { PropertyCard } from './components/PropertyCard';
@@ -35,6 +36,18 @@ export function App() {
   if (typeof window !== 'undefined' &&
       window.location.pathname === '/delete-account') {
     return <DeleteAccountPage />;
+  }
+
+  // ── Public route: /reel/:id — web landing page for deep links ──────────────
+  // When someone without the app opens https://indoproperty.in/reel/REEL_ID
+  // in their browser they see a preview page with an "Open in App" CTA.
+  // The App itself intercepts this URL via Android App Links before it loads,
+  // so this page is only seen by web/desktop users or those without the app.
+  const reelPathMatch = typeof window !== 'undefined'
+    ? window.location.pathname.match(/^\/reel\/([a-zA-Z0-9_-]+)$/)
+    : null;
+  if (reelPathMatch) {
+    return <ReelLandingPage reelId={reelPathMatch[1]} />;
   }
 
   const [currentTab, setCurrentTab] = useState<AppTab>('reels');
@@ -258,6 +271,51 @@ export function App() {
       });
     });
   }, [filters]);
+
+  // ── Deep link handler ──────────────────────────────────────────────────────
+  // Handles two entry points:
+  //   1. ?reel=REEL_ID  — user tapped "Continue on website" on the landing page
+  //   2. Android App Link intent (Capacitor forwards the URL as window.location)
+  //      e.g. the app opens to https://indoproperty.in/reel/REEL_ID
+  //
+  // On match: switch to the reels tab, wait for the reel list to load, then
+  // scroll the matching reel container into view.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const params = new URLSearchParams(window.location.search);
+    const deepReelId = params.get('reel');
+
+    // Also handle if Capacitor opened us at /reel/:id directly
+    const pathMatch = window.location.pathname.match(/^\/reel\/([a-zA-Z0-9_-]+)$/);
+    const reelId = deepReelId || pathMatch?.[1];
+
+    if (!reelId) return;
+
+    // Switch to reels tab immediately
+    setCurrentTab('reels');
+
+    // Clean the URL so the param doesn't persist on refresh
+    const cleanUrl = window.location.pathname === '/'
+      ? window.location.pathname
+      : '/';
+    window.history.replaceState(null, '', cleanUrl);
+
+    // Wait until the reel list is populated, then scroll to the target reel
+    const tryScroll = (attempts = 0) => {
+      const el = document.getElementById(`reel-container-${reelId}`);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth' });
+        return;
+      }
+      if (attempts < 20) {
+        setTimeout(() => tryScroll(attempts + 1), 300);
+      }
+    };
+
+    // Give loadData() time to populate the reel list first
+    setTimeout(() => tryScroll(), 800);
+  }, []); // runs once on mount
 
   // ── Device push registration (FCM/APNs) — no-op on web ─────────────────────
   // Runs once per signed-in session. The in-app NotificationCentre works

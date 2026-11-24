@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Heart, MessageCircle, Bookmark, Share2, Building, Plus, Check, Play, ShieldCheck, MessageSquare, Camera, Music, MoreVertical, Coins, Star } from 'lucide-react';
+import { Heart, MessageCircle, Bookmark, Share2, Plus, Check, Play, ShieldCheck, MessageSquare, Camera, Music, MoreVertical, Coins, Star } from 'lucide-react';
 import type { Reel, ReelComment, Property, Profile } from '../types/database';
 import { api } from '../services/api';
-import { formatPrice } from './PropertyCard';
 import { resolveMediaUrl } from '../services/mediaStore';
 import { ShareModal } from './ShareModal';
 
@@ -78,7 +77,7 @@ interface ReelsFeedProps {
 // ─── Feed ─────────────────────────────────────────────────────────────────────
 export const ReelsFeed: React.FC<ReelsFeedProps> = ({
   reels,
-  onOpenProperty,
+  onOpenProperty: _onOpenProperty,
   currentUser,
   onRefreshReels,
   onOpenCreateReel,
@@ -291,13 +290,19 @@ export const ReelsFeed: React.FC<ReelsFeedProps> = ({
             </div>
           </div>
         ) : (
-          reels.map((reel, idx) => {
-            const isLiked    = localLikeStates[reel.id]?.isLiked ?? reel.is_liked_by_user ?? false;
-            const likesCount = localLikeStates[reel.id]?.count ?? reel.likes_count ?? 0;
-            const isSaved    = localSaveStates[reel.id] ?? reel.is_saved_by_user ?? false;
-            const commentsCount = localCommentCounts[reel.id] ?? reel.comments_count ?? 0;
+          /* ── Build an interleaved list: reel, reel, reel, reel, reel, AD, reel … ── */
+          (() => {
+            const AD_EVERY = 5; // show ad after every 5th reel
+            const items: React.ReactNode[] = [];
 
-            return (
+            reels.forEach((reel, idx) => {
+              // ── Reel card ───────────────────────────────────────────────
+              const isLiked    = localLikeStates[reel.id]?.isLiked ?? reel.is_liked_by_user ?? false;
+              const likesCount = localLikeStates[reel.id]?.count ?? reel.likes_count ?? 0;
+              const isSaved    = localSaveStates[reel.id] ?? reel.is_saved_by_user ?? false;
+              const commentsCount = localCommentCounts[reel.id] ?? reel.comments_count ?? 0;
+
+                items.push(
               <div
                 key={reel.id}
                 id={`reel-container-${reel.id}`}
@@ -452,26 +457,6 @@ export const ReelsFeed: React.FC<ReelsFeedProps> = ({
                     <span className="truncate">Original Audio · @{reel.creator?.full_name || 'IndoProperty'}</span>
                   </div>
 
-                  {reel.property && (
-                    <div
-                      onClick={() => onOpenProperty(reel.property!)}
-                      className="p-2.5 bg-white/15 hover:bg-white/25 backdrop-blur-md rounded-2xl border border-white/20 cursor-pointer transition flex items-center justify-between gap-2 text-xs"
-                    >
-                      <div className="flex items-center gap-2 truncate">
-                        <div className="p-1.5 bg-indigo-600 rounded-lg text-white">
-                          <Building className="w-4 h-4" />
-                        </div>
-                        <div className="truncate">
-                          <span className="font-bold block truncate">{reel.property.title}</span>
-                          <span className="text-[11px] text-emerald-300 font-extrabold">
-                            {formatPrice(reel.property.price, reel.property.listing_type)}
-                          </span>
-                        </div>
-                      </div>
-                      <span className="px-2.5 py-1 bg-white text-slate-900 font-bold text-[10px] rounded-lg shrink-0">View</span>
-                    </div>
-                  )}
-
                   <div className="flex items-center gap-2 pt-1">
                     {onOpenDirectChat && (
                       <button
@@ -507,8 +492,101 @@ export const ReelsFeed: React.FC<ReelsFeedProps> = ({
                   </div>
                 </div>
               </div>
-            );
-          })
+              ); // end items.push reel card
+
+              // ── Full-screen Ad banner every AD_EVERY reels ───────────────
+              if ((idx + 1) % AD_EVERY === 0) {
+                items.push(
+                  <div
+                    key={`ad-${idx}`}
+                    className="relative w-full snap-start shrink-0 overflow-hidden bg-black flex items-center justify-center"
+                    style={{ height: '100dvh' }}
+                  >
+                    {/* Full-bleed background gradient */}
+                    <div className="absolute inset-0 bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-950" />
+
+                    {/* Decorative orbs */}
+                    <div className="absolute -top-24 -left-24 w-80 h-80 rounded-full bg-indigo-600/20 blur-3xl pointer-events-none" />
+                    <div className="absolute -bottom-24 -right-24 w-80 h-80 rounded-full bg-purple-600/20 blur-3xl pointer-events-none" />
+
+                    {/* Ad label */}
+                    <span className="absolute top-14 left-4 text-[10px] font-bold text-white/40 uppercase tracking-widest z-10">
+                      Sponsored
+                    </span>
+
+                    {/* Centre content */}
+                    <div className="relative z-10 flex flex-col items-center text-center px-8 space-y-6 max-w-xs">
+                      {/* App logo */}
+                      <div className="w-24 h-24 rounded-3xl overflow-hidden shadow-2xl shadow-indigo-500/40 border border-white/10">
+                        <img src="/logo.png" alt="IndoProperty" className="w-full h-full object-contain bg-white" />
+                      </div>
+
+                      <div className="space-y-2">
+                        <h2 className="text-3xl font-black text-white leading-tight tracking-tight">
+                          IndoProperty
+                        </h2>
+                        <p className="text-sm text-indigo-200 font-semibold leading-relaxed">
+                          India's #1 Real Estate &amp; Video Platform
+                        </p>
+                        <p className="text-xs text-slate-400 leading-relaxed">
+                          Buy · Sell · Rent · Video Reels · Direct Chat · Home Loans
+                        </p>
+                      </div>
+
+                      {/* Feature pills */}
+                      <div className="flex flex-wrap justify-center gap-2">
+                        {['🏠 Properties', '🎬 Video Reels', '💬 Direct Chat', '🏦 Home Loans', '🪙 Coin Wallet'].map(f => (
+                          <span key={f} className="px-3 py-1 rounded-full bg-white/10 border border-white/20 text-white text-[11px] font-semibold backdrop-blur-sm">
+                            {f}
+                          </span>
+                        ))}
+                      </div>
+
+                      {/* Download CTAs */}
+                      <div className="w-full space-y-3 pt-2">
+                        <a
+                          href="https://play.google.com/store/apps/details?id=com.swaraj.realestate"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center justify-center gap-2.5 w-full py-4 rounded-2xl bg-white text-slate-900 font-black text-sm shadow-xl shadow-white/10 active:scale-95 transition"
+                        >
+                          <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M3.18 23.76c.3.17.65.19.97.07l11.4-6.58-2.57-2.57-9.8 9.08zM.49 2.17C.18 2.5 0 3.01 0 3.69v16.62c0 .68.18 1.19.49 1.52l.08.08 9.31-9.31v-.22L.57 2.09l-.08.08zM19.84 10.3l-2.65-1.53-2.9 2.9 2.9 2.9 2.67-1.54c.76-.44.76-1.29-.02-1.73zM3.18.24L14.98 7.3l-2.57 2.57-9.23-9.63z"/>
+                          </svg>
+                          Download on Google Play
+                        </a>
+                        <a
+                          href="https://apps.apple.com/app/indoproperty"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center justify-center gap-2.5 w-full py-4 rounded-2xl bg-white/10 border border-white/20 text-white font-bold text-sm backdrop-blur-sm active:scale-95 transition"
+                        >
+                          <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/>
+                          </svg>
+                          Available on App Store
+                        </a>
+                      </div>
+
+                      <p className="text-[10px] text-slate-500">
+                        Free to download · 50 welcome coins on signup
+                      </p>
+                    </div>
+
+                    {/* Skip indicator */}
+                    <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-10 flex flex-col items-center gap-1 text-white/40">
+                      <div className="w-6 h-6 rounded-full border border-white/20 flex items-center justify-center animate-bounce">
+                        <span className="text-[10px]">↓</span>
+                      </div>
+                      <span className="text-[9px] font-semibold uppercase tracking-widest">Scroll</span>
+                    </div>
+                  </div>
+                );
+              }
+            }); // end reels.forEach
+
+            return items;
+          })()
         )}
       </div>
 
@@ -643,8 +721,11 @@ export const ReelsFeed: React.FC<ReelsFeedProps> = ({
         onClose={() => setShareModalReel(null)}
         title={shareModalReel?.title || 'Property Reel'}
         text={shareModalReel?.caption || shareModalReel?.title}
-        url="https://play.google.com/store/apps/details?id=com.swaraj.realestate&pcampaignid=web_share"
+        url="https://indoproperty.in"
+        reelId={shareModalReel?.id}
         imageUrl={shareModalReel?.thumbnail_url}
+        creatorName={shareModalReel?.creator?.agency_name || shareModalReel?.creator?.full_name}
+        creatorAvatar={shareModalReel?.creator?.avatar_url}
       />
     </div>
   );

@@ -24,6 +24,41 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
+            <!--
+              Android App Links — intercepts https://indoproperty.in/reel/* URLs.
+              When the user taps a shared reel link on a device with this app installed,
+              Android opens the app directly (no browser, no chooser dialog) and passes
+              the URL as the launch intent. The React app reads window.location and
+              scrolls to the matching reel.
+
+              Requires assetlinks.json at:
+                https://indoproperty.in/.well-known/assetlinks.json
+
+              To get your SHA-256 fingerprint run:
+                keytool -list -v -keystore your-release.keystore
+              and paste the SHA256 value into assetlinks.json.
+            -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="https"
+                    android:host="indoproperty.in"
+                    android:pathPrefix="/reel/" />
+            </intent-filter>
+
+            <!-- Also handle www subdomain if you use it -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="https"
+                    android:host="www.indoproperty.in"
+                    android:pathPrefix="/reel/" />
+            </intent-filter>
+
         </activity>
 
         <provider

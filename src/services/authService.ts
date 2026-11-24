@@ -462,6 +462,62 @@ export const authService = {
     }
   },
 
+  // ── Email OTP / Magic-Link (Supabase email OTP) ──────────────────────────
+  // Sends a 6-digit one-time code to the user's email address.
+  // Works even when the Phone provider / SMS gateway is not configured.
+  // Supabase Dashboard → Authentication → Providers → Email → "OTP" must be
+  // enabled (or "Magic Link" — both use signInWithOtp under the hood).
+
+  async sendEmailOtp(email: string): Promise<{ success: boolean; error?: string }> {
+    const cleanEmail = (email || '').trim().toLowerCase();
+    if (!cleanEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+      return { success: false, error: 'Please enter a valid email address.' };
+    }
+    if (!isSupabaseConfigured) {
+      return { success: false, error: 'OTP login is only available when Supabase is configured.' };
+    }
+    try {
+      const { error } = await supabase.auth.signInWithOtp({
+        email: cleanEmail,
+        options: {
+          // shouldCreateUser: false → only works for existing accounts;
+          // set true so new users can also sign in/up via OTP.
+          shouldCreateUser: true,
+        },
+      });
+      if (error) return { success: false, error: error.message };
+      return { success: true };
+    } catch (err: any) {
+      return { success: false, error: err?.message || 'Could not send the OTP. Please try again.' };
+    }
+  },
+
+  async verifyEmailOtp(email: string, token: string): Promise<{ success: boolean; profile?: Profile; error?: string }> {
+    const cleanEmail = (email || '').trim().toLowerCase();
+    const cleanToken = (token || '').replace(/\s/g, '').trim();
+
+    if (!cleanToken || cleanToken.length < 4) {
+      return { success: false, error: 'Enter the OTP code from your email.' };
+    }
+    if (!isSupabaseConfigured) {
+      return { success: false, error: 'OTP login is only available when Supabase is configured.' };
+    }
+    try {
+      const { error } = await supabase.auth.verifyOtp({
+        email: cleanEmail,
+        token: cleanToken,
+        type: 'email',
+      });
+      if (error) return { success: false, error: error.message };
+
+      // Session is now established — load the profile
+      const profile = await authService.getCurrentUser();
+      return { success: true, profile: profile ?? undefined };
+    } catch (err: any) {
+      return { success: false, error: err?.message || 'Could not verify the OTP. Please try again.' };
+    }
+  },
+
   // ── Phone OTP (Supabase Phone Auth) ───────────────────────────────────────
   // Used by the "Forgot password → OTP on mobile" flow. Requires the "Phone"
   // provider + an SMS provider (Twilio / MSG91 / Vonage) to be enabled in
