@@ -235,11 +235,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     }
   };
 
-  // ── Email OTP: step 1 — send code ─────────────────────────────────────────
+  // ── Email OTP: step 1 — collect email, check if new or returning user ───────
   const handleSendEmailOtp = async () => {
     setEmailOtpErr('');
     setEmailOtpMsg('');
-    const addr = emailOtpAddr.trim() || email.trim();
+    const addr = (emailOtpAddr || email).trim();
     if (!isValidEmail(addr)) {
       setEmailOtpErr('Enter a valid email address (e.g. you@gmail.com).');
       return;
@@ -249,8 +249,15 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     try {
       const { success, error } = await api.sendEmailOtp(addr);
       if (success) {
-        setEmailOtpStage('code');
-        setEmailOtpMsg(`A 6-digit code was sent to ${addr}. Check your inbox and spam folder.`);
+        // If this is signup mode, collect name before code entry
+        if (mode === 'signup' && !emailOtpIsNew) {
+          setEmailOtpIsNew(true);
+          setEmailOtpStage('details');
+          setEmailOtpMsg(`Code sent to ${addr}. Fill in your details below while it arrives.`);
+        } else {
+          setEmailOtpStage('code');
+          setEmailOtpMsg(`6-digit code sent to ${addr}. Check your inbox.`);
+        }
       } else {
         setEmailOtpErr(friendlyAuthError(error || 'Could not send OTP. Please try again.'));
       }
@@ -261,7 +268,17 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     }
   };
 
-  // ── Email OTP: step 2 — verify code & sign in ───────────────��─────────────
+  // ── Email OTP: from 'details' stage → proceed to code entry ─────────────
+  const handleOtpDetailsNext = () => {
+    if (!emailOtpName.trim()) {
+      setEmailOtpErr('Please enter your full name.');
+      return;
+    }
+    setEmailOtpErr('');
+    setEmailOtpStage('code');
+  };
+
+  // ── Email OTP: step 2 — verify code and sign in / sign up ───────────────
   const handleVerifyEmailOtp = async () => {
     setEmailOtpErr('');
     setEmailOtpMsg('');
@@ -271,14 +288,33 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     }
     setEmailOtpLoading(true);
     try {
-      const { success, profile, error } = await api.verifyEmailOtp(emailOtpAddr, emailOtpCode.trim());
-      if (success && profile) {
+      let profile: any = null;
+      let error: string | undefined;
+
+      if (emailOtpIsNew && emailOtpName.trim()) {
+        // New user: verify OTP then save profile details
+        const result = await api.verifyEmailOtpAndUpdateProfile(
+          emailOtpAddr, emailOtpCode.trim(),
+          { fullName: emailOtpName.trim(), role: 'professional', professionalType: emailOtpType }
+        );
+        profile = result.profile;
+        error = result.error;
+        if (result.success && profile) {
+          // Apply referral code if one was provided
+          if (referralCode.trim()) {
+            api.applyReferralCode(referralCode.trim()).catch(() => {});
+          }
+        }
+      } else {
+        // Returning user: just verify OTP
+        const result = await api.verifyEmailOtp(emailOtpAddr, emailOtpCode.trim());
+        profile = result.profile;
+        error = result.error;
+      }
+
+      if (profile) {
         setEmailOtpStage('done');
         onAuthSuccess(profile);
-        onClose();
-      } else if (success) {
-        // Session created but profile fetch failed — still close
-        setEmailOtpStage('done');
         onClose();
       } else {
         setEmailOtpErr(friendlyAuthError(error || 'Incorrect or expired code. Please try again.'));
@@ -458,15 +494,17 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               </button>
             </div>
           ) : emailOtpOpen ? (
-            /* ── Email OTP sign-in ─────────────────────────────────────── */
+            /* ── Email OTP sign-in / sign-up ───────────────────────────── */
             <div className="space-y-4">
               <div className="flex items-center gap-2.5">
                 <div className="w-10 h-10 rounded-2xl bg-indigo-100 flex items-center justify-center shrink-0">
                   <span className="text-xl">✉️</span>
                 </div>
                 <div>
-                  <h4 className="font-bold text-slate-900 text-sm">Sign in with Email OTP</h4>
-                  <p className="text-[11px] text-slate-500">We'll email you a 6-digit code — no password needed.</p>
+                  <h4 className="font-bold text-slate-900 text-sm">
+                    {emailOtpIsNew ? 'Create Account with Email OTP' : 'Sign in with Email OTP'}
+                  </h4>
+                  <p className="text-[11px] text-slate-500">No password needed — ever.</p>
                 </div>
               </div>
 
@@ -483,6 +521,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 </div>
               )}
 
+              {/* ── Stage: enter email ── */}
               {emailOtpStage === 'email' && (
                 <>
                   <div>
@@ -492,18 +531,17 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     <input
                       type="email"
                       value={emailOtpAddr || email}
-                      onChange={(e) => setEmailOtpAddr(e.target.value)}
+                      onChange={e => setEmailOtpAddr(e.target.value)}
                       placeholder="you@example.com"
+                      autoFocus
                       className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     />
-                    <p className="text-[10px] text-slate-400 mt-1">We'll send a one-time code to this address.</p>
+                    <p className="text-[10px] text-slate-400 mt-1">
+                      New or existing — just enter your email. We'll send a 6-digit code.
+                    </p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={handleSendEmailOtp}
-                    disabled={emailOtpLoading}
-                    className="w-full py-3 px-4 font-extrabold rounded-2xl shadow-lg transition flex items-center justify-center gap-2 text-sm bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white disabled:opacity-50 cursor-pointer"
-                  >
+                  <button type="button" onClick={handleSendEmailOtp} disabled={emailOtpLoading}
+                    className="w-full py-3 font-extrabold rounded-2xl shadow-lg transition flex items-center justify-center gap-2 text-sm bg-gradient-to-r from-indigo-600 to-purple-600 text-white disabled:opacity-50 cursor-pointer">
                     {emailOtpLoading
                       ? <span className="inline-block animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent" />
                       : <><span>📧</span> Send Code</>}
@@ -511,6 +549,39 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 </>
               )}
 
+              {/* ── Stage: new user details (shown after OTP is sent for signup) ── */}
+              {emailOtpStage === 'details' && (
+                <>
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Full Name *</label>
+                      <input type="text" value={emailOtpName} onChange={e => setEmailOtpName(e.target.value)}
+                        placeholder="e.g. Rahul Sharma" autoFocus
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Account Type</label>
+                      <select value={emailOtpType} onChange={e => setEmailOtpType(e.target.value)}
+                        className="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-indigo-500 bg-white">
+                        <option value="broker">Broker / Real Estate Consultant</option>
+                        <option value="builder">Property Builder / Developer</option>
+                        <option value="owner">Direct Property Owner</option>
+                      </select>
+                    </div>
+                    {referralCode ? (
+                      <div className="p-2.5 bg-indigo-50 border border-indigo-200 rounded-xl text-xs text-indigo-700 font-medium">
+                        🎁 Referral code <strong>{referralCode}</strong> will be applied automatically.
+                      </div>
+                    ) : null}
+                  </div>
+                  <button type="button" onClick={handleOtpDetailsNext}
+                    className="w-full py-3 font-extrabold rounded-2xl shadow-lg transition flex items-center justify-center gap-2 text-sm bg-gradient-to-r from-indigo-600 to-purple-600 text-white cursor-pointer">
+                    Continue → Enter Code
+                  </button>
+                </>
+              )}
+
+              {/* ── Stage: enter 6-digit code ── */}
               {emailOtpStage === 'code' && (
                 <>
                   <div>
@@ -522,40 +593,32 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       inputMode="numeric"
                       maxLength={6}
                       value={emailOtpCode}
-                      onChange={(e) => setEmailOtpCode(e.target.value.replace(/\D/g, ''))}
+                      onChange={e => setEmailOtpCode(e.target.value.replace(/\D/g, ''))}
                       placeholder="• • • • • •"
                       autoFocus
                       className="w-full px-3.5 py-3 rounded-xl border border-slate-300 text-center text-2xl font-mono tracking-[0.5em] focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     />
                     <p className="text-[10px] text-slate-400 mt-1 text-center">Sent to {emailOtpAddr}</p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={handleVerifyEmailOtp}
+                  <button type="button" onClick={handleVerifyEmailOtp}
                     disabled={emailOtpLoading || emailOtpCode.length < 4}
-                    className="w-full py-3 px-4 font-extrabold rounded-2xl shadow-lg transition flex items-center justify-center gap-2 text-sm bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white disabled:opacity-50 cursor-pointer"
-                  >
+                    className="w-full py-3 font-extrabold rounded-2xl shadow-lg transition flex items-center justify-center gap-2 text-sm bg-gradient-to-r from-indigo-600 to-purple-600 text-white disabled:opacity-50 cursor-pointer">
                     {emailOtpLoading
                       ? <span className="inline-block animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent" />
-                      : <><CheckCircle2 className="w-5 h-5" /> Verify &amp; Sign In</>}
+                      : <><CheckCircle2 className="w-5 h-5" /> Verify &amp; {emailOtpIsNew ? 'Create Account' : 'Sign In'}</>}
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => { setEmailOtpCode(''); setEmailOtpStage('email'); setEmailOtpMsg(''); setEmailOtpErr(''); }}
+                  <button type="button"
+                    onClick={() => { setEmailOtpCode(''); setEmailOtpStage('email'); setEmailOtpMsg(''); setEmailOtpErr(''); setEmailOtpIsNew(false); }}
                     disabled={emailOtpLoading}
-                    className="w-full text-[11px] font-bold text-indigo-600 hover:text-indigo-800 transition disabled:opacity-50 cursor-pointer"
-                  >
+                    className="w-full text-[11px] font-bold text-indigo-600 hover:text-indigo-800 transition disabled:opacity-50 cursor-pointer">
                     ← Change email or resend
                   </button>
                 </>
               )}
 
-              <button
-                type="button"
-                onClick={() => setEmailOtpOpen(false)}
-                className="w-full text-[11px] font-semibold text-slate-500 hover:text-slate-800 transition flex items-center justify-center gap-1.5 cursor-pointer"
-              >
-                <ArrowLeft className="w-3.5 h-3.5" /> Back to Sign In
+              <button type="button" onClick={() => setEmailOtpOpen(false)}
+                className="w-full text-[11px] font-semibold text-slate-500 hover:text-slate-800 transition flex items-center justify-center gap-1.5 cursor-pointer">
+                <ArrowLeft className="w-3.5 h-3.5" /> Back to Sign In with Password
               </button>
             </div>
           ) : phoneResetOpen ? (
@@ -780,6 +843,30 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               )}
 
               <form onSubmit={handleSubmit} className="space-y-4">
+                {/* ── OTP primary option — top of both login and signup forms ── */}
+                {!isAdminMode && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEmailOtpAddr(email.trim());
+                      setEmailOtpIsNew(mode === 'signup');
+                      setEmailOtpOpen(true);
+                    }}
+                    className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-black text-sm flex items-center justify-center gap-2 shadow-lg shadow-indigo-200 active:scale-95 transition cursor-pointer"
+                  >
+                    <span>✉️</span>
+                    {mode === 'signup' ? 'Sign Up with Email OTP — No Password Needed' : 'Sign In with Email OTP — No Password Needed'}
+                  </button>
+                )}
+
+                {/* ── Divider ── */}
+                {!isAdminMode && (
+                  <div className="flex items-center gap-3">
+                    <div className="flex-1 h-px bg-slate-200" />
+                    <span className="text-[11px] text-slate-400 font-semibold">or use password</span>
+                    <div className="flex-1 h-px bg-slate-200" />
+                  </div>
+                )}
                 {mode === 'signup' && !isAdminMode && (
                   <div className="p-3.5 bg-indigo-50/70 rounded-2xl border border-indigo-100 space-y-3">
                     <div>
@@ -1014,28 +1101,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
               {/* FOOTER SWITCHERS */}
               <div className="mt-6 pt-4 border-t border-slate-200/40 flex flex-col gap-3 text-xs">
-                {/* Email OTP sign-in option — only show on login, non-admin */}
-                {!isAdminMode && mode === 'login' && (
-                  <div className="flex items-center gap-2">
-                    <div className="flex-1 h-px bg-slate-200" />
-                    <span className="text-slate-400 font-medium shrink-0">or</span>
-                    <div className="flex-1 h-px bg-slate-200" />
-                  </div>
-                )}
-                {!isAdminMode && mode === 'login' && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setEmailOtpAddr(email.trim());
-                      setEmailOtpOpen(true);
-                    }}
-                    className="w-full py-3 rounded-2xl border-2 border-indigo-200 text-indigo-700 font-bold text-sm flex items-center justify-center gap-2 hover:bg-indigo-50 transition cursor-pointer"
-                  >
-                    ✉️ Sign in with Email OTP
-                  </button>
-                )}
-
-                {/* Forgot password + phone OTP reset links */}
+                {/* ── Forgot password + phone OTP reset links ── */}
                 {!isAdminMode && mode === 'login' && (
                   <div className="flex items-center justify-between flex-wrap gap-2">
                     <button

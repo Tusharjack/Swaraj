@@ -256,6 +256,36 @@ const AuthedProfile: React.FC<{
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
+  // ── Set / Change Password (for OTP-only users) ───────────────────────────
+  const [showSetPwd, setShowSetPwd] = useState(false);
+  const [newPwd, setNewPwd] = useState('');
+  const [confirmPwd, setConfirmPwd] = useState('');
+  const [pwdLoading, setPwdLoading] = useState(false);
+  const [pwdMsg, setPwdMsg] = useState('');
+  const [pwdErr, setPwdErr] = useState('');
+
+  const handleSetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPwdErr('');
+    if (newPwd.length < 6) { setPwdErr('Password must be at least 6 characters.'); return; }
+    if (newPwd !== confirmPwd) { setPwdErr('Passwords do not match.'); return; }
+    setPwdLoading(true);
+    try {
+      const { success, error } = await api.updatePassword(newPwd);
+      if (success) {
+        setPwdMsg('Password set successfully! You can now sign in with email + password.');
+        setNewPwd(''); setConfirmPwd('');
+        setTimeout(() => { setShowSetPwd(false); setPwdMsg(''); }, 2500);
+      } else {
+        setPwdErr(error || 'Could not set password. Please try again.');
+      }
+    } catch (err: any) {
+      setPwdErr(err.message || 'Could not set password.');
+    } finally {
+      setPwdLoading(false);
+    }
+  };
+
   const handleSignOut = () => {
     setShowSignOutConfirm(false);
     onLogout();
@@ -313,6 +343,7 @@ const AuthedProfile: React.FC<{
       group: 'Account',
       items: [
         { icon: <Settings className="w-5 h-5 text-slate-500" />, label: 'Edit Profile & Settings', action: onOpenProfile },
+        { icon: <Lock className="w-5 h-5 text-indigo-500" />,    label: 'Set / Change Password',   action: () => { setPwdErr(''); setPwdMsg(''); setNewPwd(''); setConfirmPwd(''); setShowSetPwd(true); } },
         ...(currentUser.role === 'admin' ? [{ icon: <ShieldCheck className="w-5 h-5 text-purple-500" />, label: 'Admin Console', tab: 'admin' }] : []),
         { icon: <LogOut className="w-5 h-5 text-amber-500" />, label: 'Sign Out', action: () => setShowSignOutConfirm(true) },
         { icon: <Trash2 className="w-5 h-5 text-rose-500" />, label: 'Delete Account', action: () => { setDeleteError(null); setShowDeleteAccount(true); } },
@@ -473,6 +504,57 @@ const AuthedProfile: React.FC<{
           deleting={deleting}
           deleteError={deleteError}
         />
+      )}
+
+      {/* ── Set / Change Password modal ── */}
+      {showSetPwd && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/70 backdrop-blur-sm p-4 animate-in fade-in duration-150">
+          <div className="bg-white w-full max-w-sm rounded-3xl shadow-2xl border border-slate-100 overflow-hidden">
+            <div className="p-5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white flex items-center justify-between">
+              <div>
+                <h3 className="font-bold text-base">Set / Change Password</h3>
+                <p className="text-xs text-indigo-100 mt-0.5">You can sign in with email + password after this</p>
+              </div>
+              <button onClick={() => setShowSetPwd(false)} className="text-white/70 hover:text-white transition">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <form onSubmit={handleSetPassword} className="p-5 space-y-4">
+              {pwdMsg && (
+                <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs font-bold text-emerald-700 flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" /> {pwdMsg}
+                </div>
+              )}
+              {pwdErr && (
+                <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs font-medium text-rose-700 flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 shrink-0 text-rose-500" /> {pwdErr}
+                </div>
+              )}
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">New Password</label>
+                <input type="password" value={newPwd} onChange={e => setNewPwd(e.target.value)}
+                  placeholder="At least 6 characters" minLength={6} required autoFocus
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Confirm Password</label>
+                <input type="password" value={confirmPwd} onChange={e => setConfirmPwd(e.target.value)}
+                  placeholder="Repeat password" minLength={6} required
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+              </div>
+              <div className="flex gap-3 pt-1">
+                <button type="button" onClick={() => setShowSetPwd(false)}
+                  className="flex-1 py-2.5 bg-slate-100 text-slate-700 rounded-xl text-xs font-bold hover:bg-slate-200 transition">
+                  Cancel
+                </button>
+                <button type="submit" disabled={pwdLoading}
+                  className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black shadow-md shadow-indigo-200 transition disabled:opacity-50 flex items-center justify-center gap-1.5">
+                  {pwdLoading ? <span className="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" /> : <><Lock className="w-3.5 h-3.5" /> Save Password</>}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
     </div>
   );
