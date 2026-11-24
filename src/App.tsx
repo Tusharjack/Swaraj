@@ -475,9 +475,11 @@ export function App() {
               ))}
             </div>
 
-            {/* Admin-created ad banner strip */}
-            <div className="mt-4">
-              <AdBanner />
+            {/* Admin-created ad banner — full-width, breaks out of section padding */}
+            <div className="-mx-4 sm:-mx-6 lg:-mx-8 mt-5">
+              <div className="px-4 sm:px-6 lg:px-8">
+                <AdBanner />
+              </div>
             </div>
           </div>
         </section>

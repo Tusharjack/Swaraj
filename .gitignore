@@ -27,3 +27,6 @@ dist-ssr
 android/*.jks
 android/*.keystore
 android/keystore.properties
+
+# PHP runtime credentials — never commit
+public/.env.php

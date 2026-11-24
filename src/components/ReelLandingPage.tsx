@@ -1,36 +1,35 @@
 /**
- * ReelLandingPage
+ * ReelLandingPage — /reel/:id
  *
- * Served when someone opens https://indoproperty.in/reel/:id in a browser
- * WITHOUT the app installed. It shows:
- *   - Reel thumbnail + title + creator
- *   - "Open in App" button (android-app:// intent — opens app if installed)
- *   - Google Play download CTA if app is not installed
- *   - Full web preview of the reel content so the page is shareable on social
+ * Shown to users who tap a shared reel link WITHOUT the app installed.
+ * When the app IS installed, Android App Links intercepts the URL before
+ * this page loads and opens the app directly.
  *
- * When the app IS installed Android intercepts the URL via App Links BEFORE
- * this page ever loads, so this page is only ever seen by people without the
- * app (or on desktop).
+ * This page is also the HTML that bots (WhatsApp, Telegram, iMessage) scrape
+ * for the link preview — the OG meta tags are injected server-side by the
+ * Netlify Edge Function (netlify/edge-functions/reel-og.ts) so bots see the
+ * right thumbnail and title without needing to execute JavaScript.
  */
 
 import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
 import type { Reel } from '../types/database';
 
-const PLAY_STORE_URL =
-  'https://play.google.com/store/apps/details?id=com.swaraj.realestate&pcampaignid=deeplink';
-const APP_SCHEME = 'com.swaraj.realestate'; // Android intent scheme
+const PLAY_STORE =
+  'https://play.google.com/store/apps/details?id=com.swaraj.realestate&pcampaignid=reel_share';
+const APP_PACKAGE = 'com.swaraj.realestate';
 
 interface ReelLandingPageProps {
   reelId: string;
 }
 
 export const ReelLandingPage: React.FC<ReelLandingPageProps> = ({ reelId }) => {
-  const [reel, setReel] = useState<Reel | null>(null);
+  const [reel, setReel]       = useState<Reel | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
-  const [appTried, setAppTried] = useState(false);
+  const [openAttempted, setOpenAttempted] = useState(false);
 
+  // ── Load reel data ──────────────────────────────────────────────────────
   useEffect(() => {
     if (!reelId) { setNotFound(true); setLoading(false); return; }
     api.getReelById(reelId)
@@ -39,223 +38,213 @@ export const ReelLandingPage: React.FC<ReelLandingPageProps> = ({ reelId }) => {
       .finally(() => setLoading(false));
   }, [reelId]);
 
-  /* ── Try to open in the app via Android intent URL ── */
-  const handleOpenInApp = () => {
-    setAppTried(true);
-    // intent:// URL — Android resolves this to the app if installed,
-    // otherwise falls through to the Play Store fallback URL.
-    const intentUrl =
+  // ── Auto-attempt open on Android (best-effort) ─────────────────────────
+  // On Android, we try the intent:// URL immediately on load.
+  // If the app is installed it opens silently. If not, nothing happens.
+  useEffect(() => {
+    const isAndroid = /android/i.test(navigator.userAgent);
+    if (!isAndroid || openAttempted) return;
+    setOpenAttempted(true);
+    const intent =
       `intent://reel/${reelId}#Intent;` +
       `scheme=https;` +
-      `package=${APP_SCHEME};` +
-      `S.browser_fallback_url=${encodeURIComponent(PLAY_STORE_URL)};` +
+      `package=${APP_PACKAGE};` +
+      `S.browser_fallback_url=${encodeURIComponent(PLAY_STORE)};` +
       `end`;
+    // Small delay so the page has rendered before we try to redirect
+    const t = setTimeout(() => { window.location.href = intent; }, 600);
+    return () => clearTimeout(t);
+  }, [reelId, openAttempted]);
 
-    // On iOS / desktop use a plain https deep link (Universal Link).
-    // For Android the intent:// URL above handles everything.
+  // ── Manual open in app button ──────────────────────────────────────────
+  const handleOpenInApp = () => {
     const isAndroid = /android/i.test(navigator.userAgent);
+    const isIos     = /iphone|ipad|ipod/i.test(navigator.userAgent);
+
     if (isAndroid) {
-      window.location.href = intentUrl;
-    } else {
-      // iOS: try Universal Link scheme, then fall back to App Store
+      window.location.href =
+        `intent://reel/${reelId}#Intent;` +
+        `scheme=https;package=${APP_PACKAGE};` +
+        `S.browser_fallback_url=${encodeURIComponent(PLAY_STORE)};end`;
+    } else if (isIos) {
+      // Try universal link first; fall back to App Store after 2 s
       window.location.href = `https://indoproperty.in/reel/${reelId}`;
-      // After 2 s if nothing happened (app not installed), go to store
       setTimeout(() => {
-        if (!document.hidden) {
-          window.location.href = 'https://apps.apple.com/app/indoproperty';
-        }
+        if (!document.hidden) window.location.href = 'https://apps.apple.com/app/indoproperty';
       }, 2000);
+    } else {
+      window.location.href = PLAY_STORE;
     }
   };
 
-  /* ── SEO meta injection (og: tags for social previews) ── */
-  useEffect(() => {
-    if (!reel) return;
-    document.title = `${reel.title} — IndoProperty`;
-
-    const setMeta = (property: string, content: string) => {
-      let el = document.querySelector<HTMLMetaElement>(`meta[property="${property}"]`);
-      if (!el) {
-        el = document.createElement('meta');
-        el.setAttribute('property', property);
-        document.head.appendChild(el);
-      }
-      el.content = content;
-    };
-
-    setMeta('og:title',       reel.title);
-    setMeta('og:description', reel.caption || 'Watch this property video reel on IndoProperty');
-    setMeta('og:image',       reel.thumbnail_url || '/logo.png');
-    setMeta('og:url',         `https://indoproperty.in/reel/${reelId}`);
-    setMeta('og:type',        'video.other');
-  }, [reel, reelId]);
-
-  /* ── Loading skeleton ── */
+  // ── Loading ────────────────────────────────────────────────────────────
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
-        <div className="space-y-4 w-full max-w-sm px-6">
-          <div className="aspect-[9/16] rounded-3xl bg-slate-800 animate-pulse" />
-          <div className="h-5 bg-slate-800 rounded-full w-3/4 animate-pulse" />
-          <div className="h-4 bg-slate-800 rounded-full w-1/2 animate-pulse" />
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <div className="w-full max-w-xs px-6 space-y-4">
+          <div className="w-full aspect-[9/16] rounded-2xl bg-slate-800 animate-pulse" />
+          <div className="h-4 bg-slate-800 rounded-full w-3/4 animate-pulse" />
+          <div className="h-3 bg-slate-800 rounded-full w-1/2 animate-pulse" />
         </div>
       </div>
     );
   }
 
-  /* ── 404 fallback ── */
+  // ── 404 ────────────────────────────────────────────────────────────────
   if (notFound) {
     return (
-      <div className="min-h-screen bg-slate-950 text-white flex flex-col items-center justify-center px-6 text-center space-y-6">
-        <img src="/logo.png" alt="IndoProperty" className="w-20 h-20 rounded-3xl object-contain bg-white p-2 shadow-xl" />
+      <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center px-6 text-center space-y-6">
+        <img src="/logo.png" alt="IndoProperty"
+          className="w-20 h-20 rounded-3xl object-contain bg-white p-2 shadow-2xl" />
         <div>
           <h1 className="text-2xl font-black">Reel not found</h1>
           <p className="text-slate-400 text-sm mt-2">
             This reel may have been removed or the link is incorrect.
           </p>
         </div>
-        <a
-          href={PLAY_STORE_URL}
-          className="inline-flex items-center gap-3 px-6 py-3.5 bg-white text-slate-900 font-black rounded-2xl shadow-xl text-sm"
-        >
+        <a href={PLAY_STORE} target="_blank" rel="noopener noreferrer"
+          className="inline-flex items-center gap-2.5 px-7 py-4 bg-white text-slate-900 font-black rounded-2xl shadow-xl text-sm active:scale-95 transition">
           <PlayStoreIcon /> Browse IndoProperty
         </a>
       </div>
     );
   }
 
-  const creator = reel!.creator;
-  const webUrl  = `https://indoproperty.in/reel/${reelId}`;
+  const creator  = reel!.creator;
+  const isAndroid = typeof navigator !== 'undefined' && /android/i.test(navigator.userAgent);
+  const isIos     = typeof navigator !== 'undefined' && /iphone|ipad|ipod/i.test(navigator.userAgent);
+  const isMobile  = isAndroid || isIos;
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white flex flex-col">
+    <div className="min-h-screen bg-black text-white flex flex-col items-center">
+
       {/* ── Top bar ── */}
-      <header className="px-5 py-4 flex items-center gap-3 border-b border-slate-800">
-        <img src="/logo.png" alt="IndoProperty" className="w-8 h-8 rounded-xl object-contain bg-white" />
-        <span className="font-black text-sm tracking-tight">IndoProperty</span>
-        <span className="text-slate-500 text-xs font-medium">· Real Estate Video Reels</span>
+      <header className="w-full max-w-sm px-4 py-4 flex items-center gap-2.5">
+        <img src="/logo.png" alt="IndoProperty"
+          className="w-8 h-8 rounded-xl object-contain bg-white shrink-0" />
+        <span className="font-black text-sm">IndoProperty</span>
+        <span className="text-slate-500 text-xs">· Real Estate Reels</span>
       </header>
 
-      {/* ── Reel preview ── */}
-      <main className="flex-1 flex flex-col items-center px-4 py-6 max-w-sm mx-auto w-full space-y-5">
-
-        {/* Thumbnail card */}
-        <div className="w-full relative rounded-3xl overflow-hidden shadow-2xl shadow-black/50 bg-slate-900 border border-slate-800">
+      {/* ── Reel card — Instagram portrait style ── */}
+      <div className="w-full max-w-sm px-4 flex flex-col items-center">
+        <div
+          className="relative w-full overflow-hidden rounded-2xl bg-slate-900 shadow-2xl shadow-black/70"
+          style={{ aspectRatio: '9/16', maxHeight: '72vh' }}
+        >
+          {/* Thumbnail */}
           {reel!.thumbnail_url ? (
             <img
               src={reel!.thumbnail_url}
               alt={reel!.title}
-              className="w-full aspect-[9/16] object-cover"
+              className="absolute inset-0 w-full h-full object-cover"
             />
           ) : (
-            <div className="w-full aspect-[9/16] flex items-center justify-center bg-gradient-to-br from-indigo-900 to-purple-900">
-              <svg className="w-16 h-16 text-white/30" fill="currentColor" viewBox="0 0 24 24">
+            <div className="absolute inset-0 bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 flex items-center justify-center">
+              <svg className="w-20 h-20 text-white/20" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M8 5v14l11-7z" />
               </svg>
             </div>
           )}
 
-          {/* Play overlay */}
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className="w-16 h-16 rounded-full bg-black/40 backdrop-blur-sm border border-white/30 flex items-center justify-center shadow-2xl">
-              <svg className="w-7 h-7 text-white fill-white translate-x-0.5" viewBox="0 0 24 24">
+          {/* Gradient scrim */}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/10 to-black/30" />
+
+          {/* Play badge */}
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <div className="w-16 h-16 rounded-full bg-white/20 backdrop-blur-sm border border-white/30 flex items-center justify-center shadow-2xl">
+              <svg className="w-8 h-8 fill-white translate-x-0.5" viewBox="0 0 24 24">
                 <path d="M8 5v14l11-7z" />
               </svg>
             </div>
           </div>
 
-          {/* Creator badge */}
+          {/* Creator row — top */}
           {creator && (
-            <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/90 via-black/50 to-transparent">
-              <div className="flex items-center gap-2.5">
-                {creator.avatar_url && (
-                  <img src={creator.avatar_url} alt={creator.full_name}
-                    className="w-8 h-8 rounded-full object-cover border-2 border-white/30 shrink-0" />
-                )}
-                <div>
-                  <p className="font-bold text-sm leading-tight">
-                    @{creator.agency_name || creator.full_name}
-                  </p>
-                  {creator.verified && (
-                    <span className="text-[10px] text-emerald-400 font-semibold">✓ Verified</span>
-                  )}
+            <div className="absolute top-3 left-3 right-3 flex items-center gap-2.5">
+              {creator.avatar_url ? (
+                <img src={creator.avatar_url} alt={creator.full_name}
+                  className="w-9 h-9 rounded-full object-cover border-2 border-white/40 shrink-0 shadow-md" />
+              ) : (
+                <div className="w-9 h-9 rounded-full bg-indigo-600 flex items-center justify-center shrink-0 border-2 border-white/40 text-xs font-black">
+                  {(creator.full_name || 'U')[0].toUpperCase()}
                 </div>
+              )}
+              <div className="min-w-0">
+                <p className="font-black text-sm leading-tight truncate text-white drop-shadow">
+                  {creator.agency_name || creator.full_name}
+                </p>
+                {creator.verified && (
+                  <span className="text-[10px] text-emerald-400 font-bold">✓ Verified Pro</span>
+                )}
               </div>
             </div>
           )}
-        </div>
 
-        {/* Reel info */}
-        <div className="w-full space-y-1.5 text-center">
-          <h1 className="text-lg font-black leading-tight">{reel!.title}</h1>
-          {reel!.caption && (
-            <p className="text-sm text-slate-400 leading-relaxed line-clamp-3">{reel!.caption}</p>
-          )}
-          <div className="flex items-center justify-center gap-4 pt-1 text-xs text-slate-500">
-            <span>❤️ {reel!.likes_count}</span>
-            <span>💬 {reel!.comments_count}</span>
-            <span>👁 {reel!.views_count}</span>
+          {/* Title + caption — bottom */}
+          <div className="absolute bottom-0 left-0 right-0 p-4 space-y-1">
+            <h1 className="font-black text-base leading-snug drop-shadow-lg line-clamp-2">
+              {reel!.title}
+            </h1>
+            {reel!.caption && (
+              <p className="text-xs text-slate-300 line-clamp-2 leading-relaxed">
+                {reel!.caption}
+              </p>
+            )}
+            {/* Stats row */}
+            <div className="flex items-center gap-4 pt-1 text-xs text-slate-400 font-semibold">
+              <span>❤️ {reel!.likes_count.toLocaleString()}</span>
+              <span>💬 {reel!.comments_count.toLocaleString()}</span>
+              <span>👁 {reel!.views_count.toLocaleString()}</span>
+            </div>
           </div>
         </div>
 
-        {/* ── Primary CTA: Open in App ── */}
-        <div className="w-full space-y-3">
+        {/* ── CTAs ── */}
+        <div className="w-full mt-5 space-y-3 pb-8">
+
+          {/* Primary — open in app / download */}
           <button
             onClick={handleOpenInApp}
             className="w-full py-4 rounded-2xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-black text-base shadow-xl shadow-indigo-500/30 active:scale-95 transition flex items-center justify-center gap-3"
           >
-            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
               <path d="M8 5v14l11-7z" />
             </svg>
-            {appTried ? 'Install & Watch on IndoProperty' : 'Watch in IndoProperty App'}
+            {isMobile ? 'Open in IndoProperty App' : 'Get IndoProperty'}
           </button>
 
           {/* Play Store fallback */}
           <a
-            href={PLAY_STORE_URL}
+            href={PLAY_STORE}
             target="_blank"
             rel="noopener noreferrer"
             className="w-full py-3.5 rounded-2xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-sm flex items-center justify-center gap-2.5 border border-slate-700 transition active:scale-95"
           >
-            <PlayStoreIcon />
-            Download on Google Play — Free
+            <PlayStoreIcon /> Download Free on Google Play
           </a>
 
-          {/* Web fallback: continue in browser */}
-          <a
-            href={webUrl}
-            onClick={(e) => {
-              // Redirect to home and scroll to this reel in the feed
-              e.preventDefault();
-              window.location.href = `/?reel=${reelId}`;
-            }}
-            className="block text-center text-xs text-slate-500 hover:text-slate-300 transition py-1 cursor-pointer"
+          {/* Web / browser fallback */}
+          <button
+            onClick={() => { window.location.href = `/?reel=${reelId}`; }}
+            className="w-full py-2.5 text-slate-500 hover:text-slate-300 text-xs font-semibold transition"
           >
             Continue on website →
-          </a>
+          </button>
         </div>
+      </div>
 
-        {/* Feature chips */}
-        <div className="flex flex-wrap justify-center gap-2 pt-2">
-          {['🏠 Buy & Rent', '🎬 Video Reels', '💬 Direct Chat', '🏦 Home Loans', '🪙 Coin Wallet'].map(f => (
-            <span key={f} className="px-3 py-1 rounded-full bg-slate-800 border border-slate-700 text-slate-400 text-[11px] font-medium">
-              {f}
-            </span>
-          ))}
-        </div>
-      </main>
-
-      <footer className="text-center text-xs text-slate-600 pb-6 px-4">
-        IndoProperty · India's Real Estate Video Platform ·{' '}
-        <a href="https://indoproperty.in" className="hover:text-slate-400 transition">indoproperty.in</a>
+      <footer className="w-full text-center text-[11px] text-slate-700 pb-6 px-4">
+        <a href="https://indoproperty.in" className="hover:text-slate-400 transition">
+          IndoProperty · India's Real Estate Video Platform
+        </a>
       </footer>
     </div>
   );
 };
 
-/* ── Google Play SVG ── */
 const PlayStoreIcon = () => (
-  <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-    <path d="M3.18 23.76c.3.17.65.19.97.07l11.4-6.58-2.57-2.57-9.8 9.08zM.49 2.17C.18 2.5 0 3.01 0 3.69v16.62c0 .68.18 1.19.49 1.52l.08.08 9.31-9.31v-.22L.57 2.09l-.08.08zM19.84 10.3l-2.65-1.53-2.9 2.9 2.9 2.9 2.67-1.54c.76-.44.76-1.29-.02-1.73zM3.18.24L14.98 7.3l-2.57 2.57-9.23-9.63z" />
+  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+    <path d="M3.18 23.76c.3.17.65.19.97.07l11.4-6.58-2.57-2.57-9.8 9.08zM.49 2.17C.18 2.5 0 3.01 0 3.69v16.62c0 .68.18 1.19.49 1.52l.08.08 9.31-9.31v-.22L.57 2.09l-.08.08zM19.84 10.3l-2.65-1.53-2.9 2.9 2.9 2.9 2.67-1.54c.76-.44.76-1.29-.02-1.73zM3.18.24L14.98 7.3l-2.57 2.57-9.23-9.63z"/>
   </svg>
 );

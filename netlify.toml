@@ -1,0 +1,31 @@
+[build]
+  publish = "dist"
+  command = "npm run build"
+
+# ── Edge Functions ────────────────────────────────────────────────────────────
+# reel-og intercepts /reel/:id BEFORE the SPA is served.
+# It fetches reel metadata server-side and injects OG/Twitter meta tags so
+# WhatsApp, Telegram, iMessage and other bots see the correct reel preview.
+[[edge_functions]]
+  path   = "/reel/*"
+  function = "reel-og"
+
+# ── SPA Fallback redirect ─────────────────────────────────────────────────────
+# All routes not matched by edge functions fall through to index.html.
+# This matches the existing public/_redirects file.
+[[redirects]]
+  from   = "/*"
+  to     = "/index.html"
+  status = 200
+
+# ── Cache static assets ───────────────────────────────────────────────────────
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/.well-known/assetlinks.json"
+  [headers.values]
+    Cache-Control = "public, max-age=3600"
+    Content-Type  = "application/json"

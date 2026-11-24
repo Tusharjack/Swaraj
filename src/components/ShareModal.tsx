@@ -88,12 +88,16 @@ export const ShareModal: React.FC<ShareModalProps> = ({
       ? PLAY_STORE_URL
       : rawUrl;
 
-  // The full share message — includes the deep link URL.
-  // Recipients with the app installed will be taken directly to the reel.
-  // Recipients without the app will see the web landing page.
-  const shareMsg = text
-    ? `🎬 ${title}\n${text}\n\n📱 Watch on IndoProperty → ${appUrl}`
-    : `🎬 ${title}\n\n📱 Watch on IndoProperty → ${appUrl}`;
+  // The full share message — URL must be on its own line at the end so
+  // WhatsApp fetches the OG preview image from that URL.
+  // Format: title + caption + blank line + URL alone on last line
+  const shareMsg = [
+    `🎬 *${title}*`,
+    text ? text : null,
+    `📍 ${creatorName ? `Posted by ${creatorName} on ` : ''}IndoProperty`,
+    ``,
+    appUrl,       // ← URL alone on its own line — WhatsApp preview triggers here
+  ].filter(l => l !== null).join('\n');
 
   const enc = encodeURIComponent;
 

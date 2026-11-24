@@ -468,8 +468,7 @@ export const authService = {
   // Supabase Dashboard → Authentication → Providers → Email → "OTP" must be
   // enabled (or "Magic Link" — both use signInWithOtp under the hood).
 
-  async sendEmailOtp(email: string): Promise<{ success: boolean; error?: string }> {
-    const cleanEmail = (email || '').trim().toLowerCase();
+  async sendEmailOtp(email: string): Promise<{ success: boolean; error?: string }> {    const cleanEmail = (email || '').trim().toLowerCase();
     if (!cleanEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
       return { success: false, error: 'Please enter a valid email address.' };
     }
@@ -477,12 +476,19 @@ export const authService = {
       return { success: false, error: 'OTP login is only available when Supabase is configured.' };
     }
     try {
+      // signInWithOtp with no emailRedirectTo forces a 6-digit OTP code email.
+      // IMPORTANT: In Supabase Dashboard → Authentication → Providers → Email,
+      // you must turn OFF "Enable magic links" and turn ON "Enable Email OTP".
+      // Also go to Authentication → Emails → "Magic Link" template and change
+      // the subject to "Your OTP Code" and body to show {{ .Token }} not {{ .ConfirmationURL }}.
       const { error } = await supabase.auth.signInWithOtp({
         email: cleanEmail,
         options: {
-          // shouldCreateUser: false → only works for existing accounts;
-          // set true so new users can also sign in/up via OTP.
           shouldCreateUser: true,
+          // No emailRedirectTo = OTP code mode (not magic link)
+          // If you omit this entirely Supabase sends a magic link.
+          // Setting it to undefined explicitly forces OTP code path.
+          emailRedirectTo: undefined,
         },
       });
       if (error) return { success: false, error: error.message };
@@ -516,6 +522,54 @@ export const authService = {
     } catch (err: any) {
       return { success: false, error: err?.message || 'Could not verify the OTP. Please try again.' };
     }
+  },
+
+  /**
+   * Verify an email OTP and then immediately update the profile with
+   * additional fields (full_name, role, etc.) provided at signup.
+   * Used when a new user signs up via OTP without a password.
+   */
+  async verifyEmailOtpAndUpdateProfile(
+    email: string,
+    token: string,
+    profileData: { fullName: string; role?: UserRole; professionalType?: string; agencyName?: string; phone?: string; city?: string }
+  ): Promise<{ success: boolean; profile?: Profile; error?: string }> {
+    const result = await authService.verifyEmailOtp(email, token);
+    if (!result.success || !result.profile) return result;
+
+    // Profile was auto-created by the trigger. Now update it with user-provided fields.
+    if (!isSupabaseConfigured) return result;
+    try {
+      const badge = profileData.role === 'professional' && profileData.professionalType
+        ? `${profileData.professionalType.toUpperCase()} PRO`
+        : undefined;
+
+      const updates: Partial<Profile> = {
+        full_name:         profileData.fullName || result.profile.full_name,
+        professional_type: profileData.professionalType as Profile['professional_type'],
+        agency_name:       profileData.agencyName,
+        phone:             profileData.phone,
+        city:              profileData.city || 'Mumbai',
+        badge,
+        updated_at:        new Date().toISOString(),
+      };
+      if (profileData.role) updates.role = profileData.role;
+
+      const { data, error } = await supabase
+        .from('profiles')
+        .update(updates)
+        .eq('id', result.profile.id)
+        .select()
+        .maybeSingle();
+
+      if (!error && data) {
+        const updated = data as Profile;
+        setLocalState(STORAGE_KEYS.CURRENT_USER, updated);
+        return { success: true, profile: updated };
+      }
+    } catch (_e) { /* non-fatal — return original profile */ }
+
+    return result;
   },
 
   // ── Phone OTP (Supabase Phone Auth) ───────────────────────────────────────

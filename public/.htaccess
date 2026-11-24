@@ -1,0 +1,65 @@
+Options -Indexes
+RewriteEngine On
+
+# ── Force HTTPS ───────────────────────────────────────────────────────────────
+RewriteCond %{HTTPS} off
+RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+# ── Remove trailing slash (except root) ───────────────────────────────────────
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(.+)/$ /$1 [L,R=301]
+
+# ── Serve real static files directly (assets/, logo.png, favicon, etc.) ──────
+RewriteCond %{REQUEST_FILENAME} -f
+RewriteRule ^ - [L]
+
+# ── Serve real directories directly ───────────────────────────────────────────
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
+
+# ── /reel/:id → reel.php (OG tag injection for social bots) ──────────────────
+# reel.php detects social bots and serves pre-rendered HTML with OG tags.
+# Real browsers are redirected to /?reel=ID by reel.php itself.
+RewriteRule ^reel/([a-zA-Z0-9_\-]{8,64})/?$ reel.php?id=$1 [L,QSA]
+
+# ── Everything else → React SPA (index.html) ─────────────────────────────────
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^ index.html [L]
+
+# ── Cache static assets aggressively ─────────────────────────────────────────
+<IfModule mod_expires.c>
+  ExpiresActive On
+  ExpiresByType text/html                 "access plus 0 seconds"
+  ExpiresByType text/css                  "access plus 1 year"
+  ExpiresByType application/javascript    "access plus 1 year"
+  ExpiresByType image/png                 "access plus 1 month"
+  ExpiresByType image/svg+xml             "access plus 1 month"
+  ExpiresByType image/webp                "access plus 1 month"
+  ExpiresByType image/jpeg                "access plus 1 month"
+  ExpiresByType application/json          "access plus 1 hour"
+</IfModule>
+
+# ── Security headers ──────────────────────────────────────────────────────────
+<IfModule mod_headers.c>
+  # Prevent clickjacking
+  Header always set X-Frame-Options "SAMEORIGIN"
+  # XSS protection
+  Header always set X-Content-Type-Options "nosniff"
+  # Allow WhatsApp/Telegram/social bots to access OG image (CORS for images)
+  <FilesMatch "\.(png|jpg|jpeg|webp|svg)$">
+    Header set Access-Control-Allow-Origin "*"
+  </FilesMatch>
+  # assetlinks.json must be JSON with CORS for Android App Links verification
+  <FilesMatch "assetlinks\.json$">
+    Header set Content-Type "application/json"
+    Header set Access-Control-Allow-Origin "*"
+  </FilesMatch>
+</IfModule>
+
+# ── PHP settings (Hostinger) ──────────────────────────────────────────────────
+<IfModule mod_php.c>
+  php_value default_charset "UTF-8"
+  php_flag display_errors Off
+  php_value max_execution_time 10
+</IfModule>

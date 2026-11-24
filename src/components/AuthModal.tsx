@@ -48,14 +48,20 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [otpMsg, setOtpMsg] = useState('');
   const [otpErr, setOtpErr] = useState('');
 
-  // ── Email OTP sign-in flow ─────────────────────────────────────────────────
-  const [emailOtpOpen, setEmailOtpOpen] = useState(false);
-  const [emailOtpAddr, setEmailOtpAddr] = useState('');
-  const [emailOtpCode, setEmailOtpCode] = useState('');
-  const [emailOtpStage, setEmailOtpStage] = useState<'email' | 'code' | 'done'>('email');
+  // ── Email OTP sign-in / sign-up flow ──────────────────────────────────────
+  // Stage 'details' = new user entered email but needs to fill in name/role
+  // Stage 'email'   = returning user enters email to receive OTP
+  // Stage 'code'    = entered OTP code
+  const [emailOtpOpen, setEmailOtpOpen]   = useState(false);
+  const [emailOtpAddr, setEmailOtpAddr]   = useState('');
+  const [emailOtpCode, setEmailOtpCode]   = useState('');
+  const [emailOtpStage, setEmailOtpStage] = useState<'email' | 'details' | 'code' | 'done'>('email');
+  const [emailOtpIsNew, setEmailOtpIsNew] = useState(false); // true = new user signup
+  const [emailOtpName, setEmailOtpName]   = useState('');
+  const [emailOtpType, setEmailOtpType]   = useState<string>('broker');
   const [emailOtpLoading, setEmailOtpLoading] = useState(false);
-  const [emailOtpMsg, setEmailOtpMsg] = useState('');
-  const [emailOtpErr, setEmailOtpErr] = useState('');
+  const [emailOtpMsg, setEmailOtpMsg]     = useState('');
+  const [emailOtpErr, setEmailOtpErr]     = useState('');
 
   useEffect(() => {
     // Check for referral code in URL query params (?ref=IP-XXXXXX)
@@ -93,6 +99,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     setEmailOtpAddr('');
     setEmailOtpCode('');
     setEmailOtpStage('email');
+    setEmailOtpIsNew(false);
+    setEmailOtpName('');
+    setEmailOtpType('broker');
     setEmailOtpMsg('');
     setEmailOtpErr('');
   }, [mode, isOpen]);

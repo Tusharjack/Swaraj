@@ -34,6 +34,7 @@ export const api = {
   updatePassword: authService.updatePassword.bind(authService),
   sendEmailOtp: authService.sendEmailOtp.bind(authService),
   verifyEmailOtp: authService.verifyEmailOtp.bind(authService),
+  verifyEmailOtpAndUpdateProfile: authService.verifyEmailOtpAndUpdateProfile.bind(authService),
   sendPhoneOtp: authService.sendPhoneOtp.bind(authService),
   verifyPhoneOtp: authService.verifyPhoneOtp.bind(authService),
   onAuthStateChange: authService.onAuthStateChange.bind(authService),
