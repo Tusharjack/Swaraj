@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { DeleteAccountPage } from './components/DeleteAccountPage';
+import { PrivacyPolicyPage } from './components/PrivacyPolicyPage';
 import { ReelLandingPage } from './components/ReelLandingPage';
 import { Navbar } from './components/Navbar';
 import { BottomNav } from './components/BottomNav';
@@ -36,6 +37,14 @@ export function App() {
   if (typeof window !== 'undefined' &&
       window.location.pathname === '/delete-account') {
     return <DeleteAccountPage />;
+  }
+
+  // ── Public route: /privacy-policy ──────────────────────────────────────────
+  // Publicly reachable privacy policy required by the Google Play Store for app
+  // verification / Data Safety declaration. No auth or data loading required.
+  if (typeof window !== 'undefined' &&
+      window.location.pathname === '/privacy-policy') {
+    return <PrivacyPolicyPage />;
   }
 
   // ── Public route: /reel/:id — web landing page for deep links ──────────────

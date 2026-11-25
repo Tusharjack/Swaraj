@@ -336,6 +336,12 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                   <Trash2 className="w-4 h-4" /> Delete Account
                 </button>
               </div>
+              <a
+                href="/privacy-policy"
+                className="block text-center text-[11px] font-semibold text-indigo-600 hover:underline pt-1"
+              >
+                Privacy Policy
+              </a>
             </div>
 
             {/* ── Footer: Save & Cancel only ── */}
